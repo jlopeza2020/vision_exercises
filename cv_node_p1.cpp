@@ -1,5 +1,5 @@
 /*
-# Copyright (c) 2022 Julia López Augusto
+# Copyright (c) 2022 José Miguel Guerrero Hernández
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+int key;
+int last_key;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -79,8 +81,8 @@ class ComputerVisionSubscriber : public rclcpp::Node
 void image_inCMY(cv::Mat processing_image) 
 {
 
-  for ( int i=0; i< processing_image.rows; i++ ) {
-    for ( int j=0; j< processing_image.cols; j++ ) { 
+  for ( int i=0; i < processing_image.rows; i++ ) {
+    for ( int j=0; j < processing_image.cols; j++ ) { 
 
         // You can now access the pixel value with cv::Vec3b
         processing_image.at<cv::Vec3b>(i,j)[0] = 255 - (uint)processing_image.at<cv::Vec3b>(i,j)[0];
@@ -89,28 +91,120 @@ void image_inCMY(cv::Mat processing_image)
 
     }
   }
-  //return out_image;
 }
-/*
+
 void image_inHSI(cv::Mat processing_image) 
 {
   
+  for ( int i=0; i < processing_image.rows; i++ ) {
+    for ( int j=0; j < processing_image.cols; j++ ) { 
+
+      double R, B, G, H, S, I;
+      double pi = M_PI;
+
+      // You can now access the pixel value with cv::Vec3b
+      //  blue 
+      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      //green
+      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      //red
+      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+
+      // pixel normalized  values 
+      B = B / 255;
+      G = G / 255;
+      R = R / 255;
+
+      H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
+
+      H = H*180/pi; // to convert it into degrees
+
+      if (B > G)
+      {
+        H = 360 - H;
+      }
+    
+      S = 1 -(3/(R + G + B))*std::min(R, std::min(G, B)); 
+ 
+      I = (R + G + B) / 3;
+
+      // interval set into [0, 255]
+      H =(H/360)*255;
+      S = S*255;
+      I = I*255;
+
+       // H = blue
+      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      // S = green
+      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      // I = red
+      processing_image.at<cv::Vec3b>(i,j)[2] = I;
+        
+    }
+  }
 }
 
 void image_inHSV(cv::Mat processing_image) 
 {
+  for ( int i=0; i < processing_image.rows; i++ ) {
+    for ( int j=0; j < processing_image.cols; j++ ) { 
+
+      double R, B, G, H, S, V;
+      double pi = M_PI;
+
+      // You can now access the pixel value with cv::Vec3b
+      //  blue 
+      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      //green
+      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      //red
+      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+
+      // pixel normalized  values 
+      B = B / 255;
+      G = G / 255;
+      R = R / 255;
+
+      H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
+
+      H = H*180/pi; // to convert it into degrees
+
+      if (B > G)
+      {
+        H = 360 - H;
+      }
+    
+      S = 1 -(3/(R + G + B))*std::min(R, std::min(G, B)); 
+ 
+      V = std::max(R, std::max(G, B));
+
+      // interval set into [0, 255]
+      H =(H/360)*255;
+      S = S*255;
+      V = V*255;
+
+       // H = blue
+      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      // S = green
+      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      // V = red
+      processing_image.at<cv::Vec3b>(i,j)[2] = V;
+        
+    }
+  }
   
 }
+
 
 void image_inHSVOP(cv::Mat processing_image) 
 {
-  
+  cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
 }
 
-void image_inHSIOP(cv::Mat processing_image) 
-{
+//void image_inHSIOP(cv::Mat processing_image) 
+//{
   
-}*/
+//}
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -121,34 +215,47 @@ cv::Mat image_processing(const cv::Mat in_image)
   out_image = in_image;
 
   // swith case con las 6 opciones
-  int key = cv::pollKey();
+  key = cv::pollKey();
+
+  if (key == -1){
+
+    key = last_key;
+
+  }
+
   switch(key) {
     case 49:
-      std::cout << "pulsado 1: RGB\n" << std::endl;
+      last_key = 49;
+      std::cout << "1: RGB\n" << std::endl;
       break;
 
     case 50:
-      std::cout << "pulsado 2: CMY\n" << std::endl;
+      last_key = 50;
+      std::cout << "2: CMY\n" << std::endl;
       image_inCMY(out_image);
       break;
 
     case 51:
-      std::cout << "pulsado 3: HSI\n" << std::endl;
-      //image_inHSI(out_image);
+      last_key = 51;
+      std::cout << "3: HSI\n" << std::endl;
+      image_inHSI(out_image);
       break;
 
     case 52:
-      std::cout << "pulsado 4: HSV\n" << std::endl;
-      //image_inHSV(out_image);
+      last_key = 52;
+      std::cout << "4: HSV\n" << std::endl;
+      image_inHSV(out_image);
       break;
 
     case 53:
-      std::cout << "pulsado 5: HSV OpenCV\n" << std::endl;
-      //image_inHSVOP(out_image);
+      last_key = 53;
+      std::cout << "5: HSV OpenCV\n" << std::endl;
+      image_inHSVOP(out_image);
       break;
       
     case 54:
-      std::cout << "pulsado 6: HSI OpenCV\n" << std::endl;
+      last_key = 54;
+      std::cout << "6: HSI OpenCV\n" << std::endl;
       //image_inHSIOP(out_image);
       break;
   }
@@ -160,7 +267,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   // Show image in a different window
   cv::imshow("out_image",out_image);
-  cv::waitKey(3);
+  //cv::waitKey(3);
 
   // You must to return a 3-channels image to show it in ROS, so do it with 1-channel images
   //cv::cvtColor(out_image, out_image, cv::COLOR_GRAY2BGR);
