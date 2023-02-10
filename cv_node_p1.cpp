@@ -1,5 +1,5 @@
 /*
-# Copyright (c) 2022 José Miguel Guerrero Hernández
+# Copyright (c) 2022 Julia López Augusto
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,37 +74,42 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
 /**
   TO-DO COMPLETE THIS PART 
-*/
-/*cv::Mat image_inRGB(const cv::Mat image2process) 
-{
-  cv::Mat out_image;
+**/
 
+void image_inCMY(cv::Mat processing_image) 
+{
+
+  for ( int i=0; i< processing_image.rows; i++ ) {
+    for ( int j=0; j< processing_image.cols; j++ ) { 
+
+        // You can now access the pixel value with cv::Vec3b
+        processing_image.at<cv::Vec3b>(i,j)[0] = 255 - (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+        processing_image.at<cv::Vec3b>(i,j)[1] = 255 - (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+        processing_image.at<cv::Vec3b>(i,j)[2] = 255 - (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+
+    }
+  }
+  //return out_image;
+}
+/*
+void image_inHSI(cv::Mat processing_image) 
+{
+  
 }
 
-cv::Mat image_inCMY(const cv::Mat image2process) 
+void image_inHSV(cv::Mat processing_image) 
 {
-  cv::Mat out_image;
-
+  
 }
 
-cv::Mat image_inHSI(const cv::Mat image2process) 
+void image_inHSVOP(cv::Mat processing_image) 
 {
-  cv::Mat out_image;
+  
 }
 
-cv::Mat image_inHSV(const cv::Mat image2process) 
+void image_inHSIOP(cv::Mat processing_image) 
 {
-  cv::Mat out_image;
-}
-
-cv::Mat image_inHSVOP(const cv::Mat image2process) 
-{
-  cv::Mat out_image;
-}
-
-cv::Mat image_inHSIOP(const cv::Mat image2process) 
-{
-  cv::Mat out_image;
+  
 }*/
 
 cv::Mat image_processing(const cv::Mat in_image) 
@@ -112,39 +117,41 @@ cv::Mat image_processing(const cv::Mat in_image)
   
   // Create output image
   cv::Mat out_image;
-  
+
+  out_image = in_image;
+
   // swith case con las 6 opciones
   int key = cv::pollKey();
   switch(key) {
     case 49:
       std::cout << "pulsado 1: RGB\n" << std::endl;
-      //out_image = image_inRGB(in_image);
       break;
+
     case 50:
       std::cout << "pulsado 2: CMY\n" << std::endl;
-      //out_image = image_inCMY(in_image);
+      image_inCMY(out_image);
       break;
+
     case 51:
       std::cout << "pulsado 3: HSI\n" << std::endl;
-      //out_image = image_inHSI(in_image);
+      //image_inHSI(out_image);
       break;
+
     case 52:
       std::cout << "pulsado 4: HSV\n" << std::endl;
-      //out_image = image_inHSV(in_image);
+      //image_inHSV(out_image);
       break;
+
     case 53:
       std::cout << "pulsado 5: HSV OpenCV\n" << std::endl;
-      //out_image = image_inHSVOP(in_image);
+      //image_inHSVOP(out_image);
       break;
+      
     case 54:
       std::cout << "pulsado 6: HSI OpenCV\n" << std::endl;
-      //out_image = image_inHSIOP(in_image);
+      //image_inHSIOP(out_image);
       break;
   }
-
-  
-  // Processing (output image = input image)
-  out_image = in_image;
   
   // Write text in an image
   cv::String text = "1:RGB, 2:CMY, 3:HSI, 4:HSV, 5: HSV OpenCV, 6: HSI OpenCV";
