@@ -195,16 +195,55 @@ void image_inHSV(cv::Mat processing_image)
   
 }
 
-
+//Opción 6: Mostrar la imagen en formato de color HSI utilizando la función cvtColor de
+//OpenCV para obtener los canales H y S, y calculando el canal I manualmente.
 void image_inHSVOP(cv::Mat processing_image) 
 {
   cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
 }
 
-//void image_inHSIOP(cv::Mat processing_image) 
-//{
-  
-//}
+void image_inHSIOP(cv::Mat processing_image) 
+{
+  std::vector<cv::Mat> three_channels;
+  cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
+  split( processing_image, three_channels );
+
+  // Now I can access each channel separately
+  for( int i=0; i<processing_image.rows; i++ ) {
+    for( int j=0; j<processing_image.cols; j++ ) {
+      // DO BY HAND I channel = Red
+      double blue = (uint)three_channels[0].at<uchar>(i,j);
+      double green = (uint)three_channels[1].at<uchar>(i,j);
+      double red = (uint)three_channels[2].at<uchar>(i,j);
+
+      // pixel normalized  values 
+      blue = blue / 255;
+      green = green / 255;
+      red = red / 255;
+
+      double i_channel = (red + green + blue) / 3;
+
+      i_channel = i_channel*255;
+
+      // I = red
+      three_channels[2].at<uchar>(i,j) = i_channel;
+
+    }
+  }
+
+  // Create new image combining channels
+  std::vector<cv::Mat> channels;
+  channels.push_back(three_channels[0]);
+  channels.push_back(three_channels[1]);
+  channels.push_back(three_channels[2]);
+
+  //cv::Mat new_image;
+  merge(channels, processing_image);
+  //imshow("New image", new_image);
+
+  //processing_image = new_image;
+
+}
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -256,7 +295,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 54:
       last_key = 54;
       std::cout << "6: HSI OpenCV\n" << std::endl;
-      //image_inHSIOP(out_image);
+      image_inHSIOP(out_image);
       break;
   }
   
