@@ -100,24 +100,24 @@ void image_inHSI(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, I;
-      double pi = M_PI;
+      //double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
-      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      B = processing_image.at<cv::Vec3b>(i,j)[0]/255;
       //green
-      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      G = processing_image.at<cv::Vec3b>(i,j)[1]/255;
       //red
-      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+      R = processing_image.at<cv::Vec3b>(i,j)[2]/255;
 
       // pixel normalized  values 
-      B = B / 255;
+     /* B = B / 255;
       G = G / 255;
-      R = R / 255;
+      R = R / 255;*/
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
 
-      H = H*180/pi; // to convert it into degrees
+      //H = H*180/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -129,16 +129,16 @@ void image_inHSI(cv::Mat processing_image)
       I = (R + G + B) / 3;
 
       // interval set into [0, 255]
-      H =(H/360)*255;
+      /*H =(H/360)*255;
       S = S*255;
-      I = I*255;
+      I = I*255;*/
 
        // H = blue
-      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      processing_image.at<cv::Vec3b>(i,j)[0] = (uint)(H/360)*255;;
       // S = green
-      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      processing_image.at<cv::Vec3b>(i,j)[1] = (uint)S*255;
       // I = red
-      processing_image.at<cv::Vec3b>(i,j)[2] = I;
+      processing_image.at<cv::Vec3b>(i,j)[2] = (uint)I*255;
         
     }
   }
@@ -150,24 +150,24 @@ void image_inHSV(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, V;
-      double pi = M_PI;
+      //double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
-      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0]/255;
       //green
-      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1]/255;
       //red
-      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2]/255;
 
       // pixel normalized  values 
-      B = B / 255;
+      /*B = B / 255;
       G = G / 255;
-      R = R / 255;
+      R = R / 255;*/
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
 
-      H = H*180/pi; // to convert it into degrees
+      //H = H*180/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -179,53 +179,57 @@ void image_inHSV(cv::Mat processing_image)
       V = std::max(R, std::max(G, B));
 
       // interval set into [0, 255]
-      H =(H/360)*255;
+      /*H =(H/360)*255;
       S = S*255;
-      V = V*255;
+      V = V*255;*/
 
        // H = blue
-      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      processing_image.at<cv::Vec3b>(i,j)[0] = (uint)(H/360)*255;;
       // S = green
-      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      processing_image.at<cv::Vec3b>(i,j)[1] = (uint)S*255;
       // V = red
-      processing_image.at<cv::Vec3b>(i,j)[2] = V;
+      processing_image.at<cv::Vec3b>(i,j)[2] = (uint)V*255;
         
     }
   }
   
 }
 
-//Opción 6: Mostrar la imagen en formato de color HSI utilizando la función cvtColor de
-//OpenCV para obtener los canales H y S, y calculando el canal I manualmente.
+
 void image_inHSVOP(cv::Mat processing_image) 
 {
   cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
 }
 
+//Opción 6: Mostrar la imagen en formato de color HSI utilizando la función cvtColor de
+//OpenCV para obtener los canales H y S, y calculando el canal I manualmente.
 void image_inHSIOP(cv::Mat processing_image) 
 {
   std::vector<cv::Mat> three_channels;
-  cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
+  cvtColor(processing_image, processing_image, cv::COLOR_RGB2HSV);
   split( processing_image, three_channels );
 
   // Now I can access each channel separately
   for( int i=0; i<processing_image.rows; i++ ) {
     for( int j=0; j<processing_image.cols; j++ ) {
       // DO BY HAND I channel = Red
-      double blue = (uint)three_channels[0].at<uchar>(i,j);
-      double green = (uint)three_channels[1].at<uchar>(i,j);
-      double red = (uint)three_channels[2].at<uchar>(i,j);
+      double blue = three_channels[0].at<uchar>(i,j) / 255;
+      double green = three_channels[1].at<uchar>(i,j) / 255;
+      double red = three_channels[2].at<uchar>(i,j) / 255;
 
       // pixel normalized  values 
-      blue = blue / 255;
-      green = green / 255;
-      red = red / 255;
+      //blue = blue / 255;
+      //green = green / 255;
+      //red = red / 255;
 
       double i_channel = (red + green + blue) / 3;
 
       i_channel = i_channel*255;
 
       // I = red
+      //H
+      //S
+      
       three_channels[2].at<uchar>(i,j) = i_channel;
 
     }
