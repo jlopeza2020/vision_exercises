@@ -1,5 +1,5 @@
 /*
-# Copyright (c) 2022 José Miguel Guerrero Hernández
+# Copyright (c) 2023 Julia López Augusto
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,15 +100,15 @@ void image_inHSI(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, I;
-      double pi = M_PI;
+      //double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
-      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      B = processing_image.at<cv::Vec3b>(i,j)[0];
       //green
-      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      G = processing_image.at<cv::Vec3b>(i,j)[1];
       //red
-      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+      R = processing_image.at<cv::Vec3b>(i,j)[2];
 
       // pixel normalized  values 
       B = B / 255.0;
@@ -117,7 +117,7 @@ void image_inHSI(cv::Mat processing_image)
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
 
-      H = H*180.0/pi; // to convert it into degrees
+      //H = H*180.0/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -134,11 +134,11 @@ void image_inHSI(cv::Mat processing_image)
       I = I*255.0;
 
        // H = blue
-      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      processing_image.at<cv::Vec3b>(i,j)[0] = (uint)H;
       // S = green
-      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      processing_image.at<cv::Vec3b>(i,j)[1] = (uint)S;
       // I = red
-      processing_image.at<cv::Vec3b>(i,j)[2] = I;
+      processing_image.at<cv::Vec3b>(i,j)[2] = (uint)I;
         
     }
   }
@@ -150,15 +150,15 @@ void image_inHSV(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, V;
-      double pi = M_PI;
+      //double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
-      B = (uint)processing_image.at<cv::Vec3b>(i,j)[0];
+      B = processing_image.at<cv::Vec3b>(i,j)[0];
       //green
-      G = (uint)processing_image.at<cv::Vec3b>(i,j)[1];
+      G = processing_image.at<cv::Vec3b>(i,j)[1];
       //red
-      R = (uint)processing_image.at<cv::Vec3b>(i,j)[2];
+      R = processing_image.at<cv::Vec3b>(i,j)[2];
 
       // pixel normalized  values 
       B = B / 255.0;
@@ -167,7 +167,7 @@ void image_inHSV(cv::Mat processing_image)
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
 
-      H = H*180.0/pi; // to convert it into degrees
+      //H = H*180.0/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -184,11 +184,11 @@ void image_inHSV(cv::Mat processing_image)
       V = V*255.0;
 
        // H = blue
-      processing_image.at<cv::Vec3b>(i,j)[0] = H;
+      processing_image.at<cv::Vec3b>(i,j)[0] = (uint)H;
       // S = green
-      processing_image.at<cv::Vec3b>(i,j)[1] = S;
+      processing_image.at<cv::Vec3b>(i,j)[1] = (uint)S;
       // V = red
-      processing_image.at<cv::Vec3b>(i,j)[2] = V;
+      processing_image.at<cv::Vec3b>(i,j)[2] = (uint)V;
         
     }
   }
@@ -219,18 +219,14 @@ void image_inHSIOP(cv::Mat processing_image)
   for( int i=0; i<processing_image.rows; i++ ) {
     for( int j=0; j<processing_image.cols; j++ ) {
       // DO BY HAND I channel = Red
-      float blue = BGR_channels[0].at<uchar>(i,j);
-      float green = BGR_channels[1].at<uchar>(i,j);
-      float red = BGR_channels[2].at<uchar>(i,j);
+      double blue = BGR_channels[0].at<uchar>(i,j);
+      double green = BGR_channels[1].at<uchar>(i,j);
+      double red = BGR_channels[2].at<uchar>(i,j);
 
       // pixel normalized  values 
       blue = blue / 255.0;
       green = green / 255.0;
       red = red / 255.0;
-
-      //double i_channel = (red + green + blue) / 3;
-
-      //i_channel = i_channel*255;
 
       // I = red
       HSI_channels[2].at<uchar>(i,j) = ((red + green + blue) / 3.0)*255.0;
@@ -244,11 +240,8 @@ void image_inHSIOP(cv::Mat processing_image)
   channels.push_back(HSI_channels[1]); // S
   channels.push_back(HSI_channels[2]);  // I
 
-  //cv::Mat new_image;
   merge(channels, processing_image);
-  //imshow("New image", new_image);
 
-  //processing_image = new_image;
 
 }
 
