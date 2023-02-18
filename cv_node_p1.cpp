@@ -100,7 +100,7 @@ void image_inHSI(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, I;
-      //double pi = M_PI;
+      double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
@@ -117,7 +117,11 @@ void image_inHSI(cv::Mat processing_image)
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
 
-      //H = H*180.0/pi; // to convert it into degrees
+      if (isnan(H)){
+        H = 0;
+      }
+
+      H = H*180.0/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -150,7 +154,7 @@ void image_inHSV(cv::Mat processing_image)
     for ( int j=0; j < processing_image.cols; j++ ) { 
 
       double R, B, G, H, S, V;
-      //double pi = M_PI;
+      double pi = M_PI;
 
       // You can now access the pixel value with cv::Vec3b
       //  blue 
@@ -166,8 +170,12 @@ void image_inHSV(cv::Mat processing_image)
       R = R / 255.0;
 
       H = acos(1/2*((R-G) + (R-B))/sqrt((R - B)*(R - B) + (R - B)*(G - B)));
+      
+      if (isnan(H)){
+        H = 0;
+      }
 
-      //H = H*180.0/pi; // to convert it into degrees
+      H = H*180.0/pi; // to convert it into degrees
 
       if (B > G)
       {
@@ -195,16 +203,11 @@ void image_inHSV(cv::Mat processing_image)
   
 }
 
-//Opción 6: Mostrar la imagen en formato de color HSI utilizando la función cvtColor de
-//OpenCV para obtener los canales H y S, y calculando el canal I manualmente.
 void image_inHSVOP(cv::Mat processing_image) 
 {
   cvtColor(processing_image, processing_image, cv::COLOR_BGR2HSV);
 }
 
-
-//Opción 6: Mostrar la imagen en formato de color HSI utilizando la función cvtColor de
-//OpenCV para obtener los canales H y S, y calculando el canal I manualmente.
 void image_inHSIOP(cv::Mat processing_image) 
 {
   std::vector<cv::Mat> BGR_channels;
@@ -306,10 +309,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   // Show image in a different window
   cv::imshow("out_image",out_image);
-  //cv::waitKey(3);
 
-  // You must to return a 3-channels image to show it in ROS, so do it with 1-channel images
-  //cv::cvtColor(out_image, out_image, cv::COLOR_GRAY2BGR);
   return out_image;
 }
 
