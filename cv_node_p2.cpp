@@ -78,11 +78,15 @@ class ComputerVisionSubscriber : public rclcpp::Node
   TO-DO COMPLETE THIS PART 
 **/
 
-/*void image_gray(cv::Mat out)
+cv::Mat image_gray(cv::Mat in_img)
 {
-  cv::cvtColor(out , out, cv::COLOR_BGR2GRAY);
-  cv::cvtColor(out , out, cv::COLOR_GRAY2BGR);
-}*/
+  cv::Mat out_img;
+
+  cv::cvtColor(in_img , out_img, cv::COLOR_BGR2GRAY);
+  cv::cvtColor(out_img , out_img, cv::COLOR_GRAY2BGR);
+
+  return out_img;
+}
 
 // Compute the Discrete fourier transform
 cv::Mat computeDFT(const cv::Mat &image) {
@@ -156,12 +160,13 @@ cv::Mat spectrum(const cv::Mat &complexI) {
 }
 
 
-/*void image_fourier(cv::Mat in) 
+cv::Mat image_fourier(cv::Mat input_img) 
 {
-  // compute the Discrete fourier transform
-  // Expand img to optimal size
-  // Compute the Discrete fourier transform
-  cv::Mat complexImg = computeDFT(in);
+  cv::Mat gray_image;
+
+  cv::cvtColor(input_img , gray_image, cv::COLOR_BGR2GRAY);
+  
+  cv::Mat complexImg = computeDFT(gray_image);
 
   // Get the spectrum
   cv::Mat spectrum_original = spectrum(complexImg);
@@ -175,9 +180,10 @@ cv::Mat spectrum(const cv::Mat &complexI) {
   cv::Mat spectrum_filter = spectrum(rearrange);
 
   //out = spectrum_filter;
-  cv::imshow("out_image",spectrum_filter);
+  return spectrum_filter;
+ 
   
-}*/
+}
 
 /*void image_keep_filter(cv::Mat processing_image) 
 {
@@ -199,27 +205,9 @@ cv::Mat image_processing(const cv::Mat in_image)
 {
   
   // Create output image
-  cv::Mat gray_image;
+  cv::Mat out_image;
 
-  //out_image = in_image;
-
-  cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
-  
-  cv::Mat complexImg = computeDFT(gray_image);
-
-  // Get the spectrum
-  cv::Mat spectrum_original = spectrum(complexImg);
-
-  // Crop and rearrange
-  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
-  //doSomethingWithTheSpectrum(shift_complex);   
-  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
-
-  // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(rearrange);
-
-  cv::Mat out_image = spectrum_filter;
-
+  out_image = in_image;
 
   key = cv::pollKey();
 
@@ -234,16 +222,19 @@ cv::Mat image_processing(const cv::Mat in_image)
       last_key = 49;
       std::cout << "1: GRAY\n" << std::endl;
       // image in gray
-      cv::cvtColor(out_image , out_image, cv::COLOR_BGR2GRAY);
-      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+      out_image = image_gray(in_image);
+      //cv::cvtColor(out_image , out_image, cv::COLOR_BGR2GRAY);
+      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 50:
       last_key = 50;
       std::cout << "2: Fourier\n" << std::endl;
-
-      //image_fourier(in_image);
-
+      
+      out_image = image_fourier(in_image);
+      
+      // to make the headings in red
+      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 51:
