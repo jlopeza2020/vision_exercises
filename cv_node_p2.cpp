@@ -78,41 +78,149 @@ class ComputerVisionSubscriber : public rclcpp::Node
   TO-DO COMPLETE THIS PART 
 **/
 
-void image_gray(cv::Mat processing_image)
+/*void image_gray(cv::Mat out)
 {
-    cv::cvt
-}
-void image_fourier(cv::Mat processing_image) 
-{
+  cv::cvtColor(out , out, cv::COLOR_BGR2GRAY);
+  cv::cvtColor(out , out, cv::COLOR_GRAY2BGR);
+}*/
 
-  
+// Compute the Discrete fourier transform
+cv::Mat computeDFT(const cv::Mat &image) {
+  // Expand the image to an optimal size. 
+  cv::Mat padded;                      
+  int m = cv::getOptimalDFTSize( image.rows );
+  int n = cv::getOptimalDFTSize( image.cols ); // on the border add zero values
+  copyMakeBorder(image, padded, 0, m - image.rows, 0, n - image.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+    
+  // Make place for both the complex and the real values
+  cv::Mat planes[] = {cv::Mat_<float>(padded), cv::Mat::zeros(padded.size(), CV_32F)};
+  cv::Mat complexI;
+  merge(planes, 2, complexI);         // Add to the expanded another plane with zeros
+
+  // Make the Discrete Fourier Transform
+  dft(complexI, complexI, cv::DFT_COMPLEX_OUTPUT);      // this way the result may fit in the source matrix
+  return complexI;
 }
 
-void image_keep_filter(cv::Mat processing_image) 
+// 6. Crop and rearrange
+cv::Mat fftShift(const cv::Mat &magI) {
+  cv::Mat magI_copy = magI.clone();
+  // crop the spectrum, if it has an odd number of rows or columns
+  magI_copy = magI_copy(cv::Rect(0, 0, magI_copy.cols & -2, magI_copy.rows & -2));
+    
+  // rearrange the quadrants of Fourier image  so that the origin is at the image center
+  int cx = magI_copy.cols/2;
+  int cy = magI_copy.rows/2;
+
+  cv::Mat q0(magI_copy, cv::Rect(0, 0, cx, cy));   // Top-Left - Create a ROI per quadrant
+  cv::Mat q1(magI_copy, cv::Rect(cx, 0, cx, cy));  // Top-Right
+  cv::Mat q2(magI_copy, cv::Rect(0, cy, cx, cy));  // Bottom-Left
+  cv::Mat q3(magI_copy, cv::Rect(cx, cy, cx, cy)); // Bottom-Right
+
+  cv::Mat tmp;                           // swap quadrants (Top-Left with Bottom-Right)
+  q0.copyTo(tmp);
+  q3.copyTo(q0);
+  tmp.copyTo(q3);
+
+  q1.copyTo(tmp);                    // swap quadrant (Top-Right with Bottom-Left)
+  q2.copyTo(q1);
+  tmp.copyTo(q2);
+
+  return magI_copy;
+}
+
+
+// Calculate dft spectrum
+cv::Mat spectrum(const cv::Mat &complexI) {
+
+  cv::Mat complexImg = complexI.clone();
+  // Shift quadrants
+  cv::Mat shift_complex = fftShift(complexImg);
+
+  // Transform the real and complex values to magnitude
+  // compute the magnitude and switch to logarithmic scale
+  // => log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
+  cv::Mat planes_spectrum[2];
+  split(shift_complex, planes_spectrum);       // planes[0] = Re(DFT(I), planes[1] = Im(DFT(I))
+  magnitude(planes_spectrum[0], planes_spectrum[1], planes_spectrum[0]);// planes[0] = magnitude
+  cv::Mat spectrum = planes_spectrum[0];
+
+  // Switch to a logarithmic scale
+  spectrum += cv::Scalar::all(1);
+  log(spectrum, spectrum);
+
+  // Normalize
+  normalize(spectrum, spectrum, 0, 1, cv::NORM_MINMAX); // Transform the matrix with float values into a
+                                                      // viewable image form (float between values 0 and 1).
+  return spectrum;
+}
+
+
+/*void image_fourier(cv::Mat in) 
+{
+  // compute the Discrete fourier transform
+  // Expand img to optimal size
+  // Compute the Discrete fourier transform
+  cv::Mat complexImg = computeDFT(in);
+
+  // Get the spectrum
+  cv::Mat spectrum_original = spectrum(complexImg);
+
+  // Crop and rearrange
+  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
+  //doSomethingWithTheSpectrum(shift_complex);   
+  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
+
+  // Get the spectrum after the processing
+  cv::Mat spectrum_filter = spectrum(rearrange);
+
+  //out = spectrum_filter;
+  cv::imshow("out_image",spectrum_filter);
+  
+}*/
+
+/*void image_keep_filter(cv::Mat processing_image) 
 {
   
   
-}
+}*/
 
-void image_remove_filter(cv::Mat processing_image) 
+/*void image_remove_filter(cv::Mat processing_image) 
 {
   
   
-}
+}*/
 
-void image_logic_and(cv::Mat processing_image) 
+/*void image_logic_and(cv::Mat processing_image) 
 {
-}
+}*/
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   
   // Create output image
-  cv::Mat out_image;
+  cv::Mat gray_image;
 
-  out_image = in_image;
+  //out_image = in_image;
 
-  // swith case con las 6 opciones
+  cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
+  
+  cv::Mat complexImg = computeDFT(gray_image);
+
+  // Get the spectrum
+  cv::Mat spectrum_original = spectrum(complexImg);
+
+  // Crop and rearrange
+  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
+  //doSomethingWithTheSpectrum(shift_complex);   
+  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
+
+  // Get the spectrum after the processing
+  cv::Mat spectrum_filter = spectrum(rearrange);
+
+  cv::Mat out_image = spectrum_filter;
+
+
   key = cv::pollKey();
 
   if (key == -1){
@@ -125,31 +233,35 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 49:
       last_key = 49;
       std::cout << "1: GRAY\n" << std::endl;
-      image_gray(out_image);
+      // image in gray
+      cv::cvtColor(out_image , out_image, cv::COLOR_BGR2GRAY);
+      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 50:
       last_key = 50;
       std::cout << "2: Fourier\n" << std::endl;
-      image_fourier(out_image);
+
+      //image_fourier(in_image);
+
       break;
 
     case 51:
       last_key = 51;
       std::cout << "3: Keep Filter\n" << std::endl;
-      image_keep_filter(out_image);
+      //image_keep_filter(out_image);
       break;
 
     case 52:
       last_key = 52;
       std::cout << "4: Remove Filter\n" << std::endl;
-      image_remove_filter(out_image);
+      //image_remove_filter(out_image);
       break;
 
     case 53:
       last_key = 53;
       std::cout << "5: AND\n" << std::endl;
-      image_logic_and(out_image);
+      //image_logic_and(out_image);
       break;
   }
   
