@@ -174,10 +174,10 @@ cv::Mat image_fourier(cv::Mat input_img)
   // Crop and rearrange
   cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
   //doSomethingWithTheSpectrum(shift_complex);   
-  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
+  //cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
 
   // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(rearrange);
+  cv::Mat spectrum_filter = spectrum(shift_complex);
 
   //out = spectrum_filter;
   return spectrum_filter;
@@ -185,11 +185,29 @@ cv::Mat image_fourier(cv::Mat input_img)
   
 }
 
-/*void image_keep_filter(cv::Mat processing_image) 
+cv::Mat image_keep_filter(cv::Mat in_image) 
 {
-  
-  
-}*/
+  cv::Mat fou_img = image_fourier(in_image);
+
+  // G = H*Fourier
+  // H
+  cv::Mat set_threshold(fou_img.rows, fou_img.cols, fou_img.type());
+  int threshold_p = 150;
+  // Read pixel values
+  for ( int i=0; i<fou_img.rows; i++ ) {
+    for ( int j=0; j<fou_img.cols; j++ ) {
+      // You can now access the pixel value and calculate the new value
+      uint value = (uint)(255 - (uint)fou_img.at<uchar>(i,j));
+      if (value > threshold_p) 
+        fou_img.at<uchar>(i,j) = (uint)255;
+      else 
+        fou_img.at<uchar>(i,j) = (uint)0;
+    }
+  }
+
+  cv::Mat resultant_img = set_threshold * fou_img; 
+  return resultant_img;
+}
 
 /*void image_remove_filter(cv::Mat processing_image) 
 {
@@ -240,7 +258,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 51:
       last_key = 51;
       std::cout << "3: Keep Filter\n" << std::endl;
-      //image_keep_filter(out_image);
+      out_image = image_keep_filter(in_image);
       break;
 
     case 52:
