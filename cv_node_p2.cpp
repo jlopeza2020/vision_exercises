@@ -166,18 +166,20 @@ cv::Mat image_fourier(cv::Mat input_img)
 
   cv::cvtColor(input_img , gray_image, cv::COLOR_BGR2GRAY);
   
+  // Compute the Discrete fourier transform
   cv::Mat complexImg = computeDFT(gray_image);
 
   // Get the spectrum
-  cv::Mat spectrum_original = spectrum(complexImg);
+  //cv::Mat spectrum_original = spectrum(complexImg);
 
   // Crop and rearrange
-  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
+  //cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
   //doSomethingWithTheSpectrum(shift_complex);   
   //cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
 
   // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(shift_complex);
+  //cv::Mat spectrum_filter = spectrum(rearrange);
+  cv::Mat spectrum_filter = spectrum(complexImg);
 
   //out = spectrum_filter;
   return spectrum_filter;
@@ -185,28 +187,58 @@ cv::Mat image_fourier(cv::Mat input_img)
   
 }
 
-cv::Mat image_keep_filter(cv::Mat in_image) 
+void get_hv_frecuencies(cv::Mat image){
+  //int rows, cols = image.shape;
+  //int crow = image.rows/2;
+  //int ccol = image.cols/2; 
+
+  //cv::Mat m1 = Mat(1,1, CV_64F, 0.0);
+  cv::Mat filter(image.rows, image.cols, CV_32F, cv::Scalar(0));
+
+  filter(cv::Range(image.rows/2 - 10, image.rows/2 + 10), cv::Range(image.cols/2 - 10, image.cols/2 + 10)) = cv::Scalar(1.0f);
+  mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
+ 
+ // cv::Mat mask = np.zeros((image.rows, image.cols), np.uint8);
+  //mask[crow-10:crow+10, :] = 1;
+  //mask[:, ccol-10:ccol+10] = 1;
+
+  cv::imshow("mask", filter);
+
+  cv::imshow("multiplied", image);
+}
+
+cv::Mat image_keep_filter(cv::Mat input_image) 
 {
-  cv::Mat fou_img = image_fourier(in_image);
+  cv::Mat gray_image;
 
-  // G = H*Fourier
-  // H
-  cv::Mat set_threshold(fou_img.rows, fou_img.cols, fou_img.type());
-  int threshold_p = 150;
-  // Read pixel values
-  for ( int i=0; i<fou_img.rows; i++ ) {
-    for ( int j=0; j<fou_img.cols; j++ ) {
-      // You can now access the pixel value and calculate the new value
-      uint value = (uint)(255 - (uint)fou_img.at<uchar>(i,j));
-      if (value > threshold_p) 
-        fou_img.at<uchar>(i,j) = (uint)255;
-      else 
-        fou_img.at<uchar>(i,j) = (uint)0;
-    }
-  }
+  cv::cvtColor(input_image , gray_image, cv::COLOR_BGR2GRAY);
+  
+  // Compute the Discrete fourier transform
+  cv::Mat complexImg = computeDFT(gray_image);
 
-  cv::Mat resultant_img = set_threshold * fou_img; 
-  return resultant_img;
+  // Crop and rearrange
+  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
+  //doSomethingWithTheSpectrum(shift_complex); 
+  get_hv_frecuencies(shift_complex);  
+  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
+
+  // Get the spectrum after the processing
+  cv::Mat spectrum_filter = spectrum(rearrange);
+
+  // Results
+  /*imshow("Input Image"        , I   );    // Show the result
+  imshow("Spectrum original"  , spectrum_original);
+  imshow("Spectrum filter"    , spectrum_filter);
+
+  // Calculating the idft
+  Mat inverseTransform;
+  idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
+  normalize(inverseTransform, inverseTransform, 0, 1, NORM_MINMAX);
+  //imshow("Reconstructed", inverseTransform);*/
+
+
+  return spectrum_filter;
+
 }
 
 /*void image_remove_filter(cv::Mat processing_image) 
@@ -241,8 +273,6 @@ cv::Mat image_processing(const cv::Mat in_image)
       std::cout << "1: GRAY\n" << std::endl;
       // image in gray
       out_image = image_gray(in_image);
-      //cv::cvtColor(out_image , out_image, cv::COLOR_BGR2GRAY);
-      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 50:
