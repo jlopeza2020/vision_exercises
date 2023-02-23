@@ -187,24 +187,31 @@ cv::Mat image_fourier(cv::Mat input_img)
   
 }
 
+// image = shiffted_complex
 void get_hv_frecuencies(cv::Mat image){
-  //int rows, cols = image.shape;
-  //int crow = image.rows/2;
-  //int ccol = image.cols/2; 
 
-  //cv::Mat m1 = Mat(1,1, CV_64F, 0.0);
-  cv::Mat filter(image.rows, image.cols, CV_32F, cv::Scalar(0));
+  //cv::Mat filter(image.rows, image.cols, CV_64FC4, cv::Scalar(0));
+  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32F);
 
-  filter(cv::Range(image.rows/2 - 10, image.rows/2 + 10), cv::Range(image.cols/2 - 10, image.cols/2 + 10)) = cv::Scalar(1.0f);
-  mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
- 
- // cv::Mat mask = np.zeros((image.rows, image.cols), np.uint8);
-  //mask[crow-10:crow+10, :] = 1;
-  //mask[:, ccol-10:ccol+10] = 1;
+  int cx = filter.cols / 2;
+  int cy = filter.rows / 2;
+  /*
+  for (int i = 0; i < filter.rows; i++){
+    for (int j = 0; j < filter.cols; j++){
+      if (i == cy || j == cx){
+        filter.at<cv::Vec2f>(i,j)[0] = 1;
+      }
+    }
+  }*/
+  //cv::Mat result;
+  filter(cv::Range(cy - 10, cy + 10), cv::Range(cx - 10, cx + 10)) = cv::Scalar(1);
+  //cv::mulSpectrums(image, filter, result, 0); // multiply 2 spectrums
+  std::cout << "image" << image.type() << std::endl;
+  std::cout << "filter" << filter.type() << std::endl;
 
   cv::imshow("mask", filter);
 
-  cv::imshow("multiplied", image);
+  //cv::imshow("multiplied", image);
 }
 
 cv::Mat image_keep_filter(cv::Mat input_image) 
@@ -241,9 +248,37 @@ cv::Mat image_keep_filter(cv::Mat input_image)
 
 }
 
-/*void image_remove_filter(cv::Mat processing_image) 
+/*cv::Mat image_remove_filter(cv::Mat img) 
 {
-  
+  //v::Mat img = cv::imread("imagen.jpg", cv::IMREAD_GRAYSCALE); // Leer imagen en escala de grises
+  cv::Mat gray_img;
+
+  cv::cvtColor(img , gray_img, cv::COLOR_BGR2GRAY);
+  cv::Mat img_float, img_dft;
+  gray_img.convertTo(img_float, CV_32FC2); // Convertir la imagen a tipo float
+  cv::dft(img_float, img_dft, cv::DFT_COMPLEX_OUTPUT); // Calcular la transformada de Fourier de la imagen
+
+  // Crear matriz filtro
+  cv::Mat filter_horizontal = cv::Mat::ones(1, gray_img.rows, CV_32F);
+  cv::Mat filter_vertical = cv::Mat::ones(gray_img.cols, 1, CV_32F);
+  cv::Mat filter = filter_vertical * filter_horizontal;
+  cv::Mat filter_mat;
+  cv::merge(std::vector<cv::Mat>{filter, filter}, filter_mat);
+
+  // Aplicar filtro al espectro de Fourier
+  cv::Mat img_filtered;
+  cv::mulSpectrums(img_dft, filter_mat, img_filtered, 0);
+
+  // Calcular la transformada inversa de Fourier de la imagen filtrada
+  cv::Mat img_ifft;
+  img_ifft.convertTo(img_float, CV_32FC2); // Convertir la imagen a tipo float
+  cv::dft(img_filtered, img_ifft, cv::DFT_INVERSE | cv::DFT_REAL_OUTPUT);
+
+  // Normalizar la imagen inversa y mostrarla
+  cv::normalize(img_ifft, img_ifft, 0, 255, cv::NORM_MINMAX, CV_8U);
+  //cv::imshow("Imagen inversa", img_ifft);
+  //cv::waitKey(0);
+  return img_ifft;
   
 }*/
 
@@ -294,7 +329,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 52:
       last_key = 52;
       std::cout << "4: Remove Filter\n" << std::endl;
-      //image_remove_filter(out_image);
+      //out_image = image_remove_filter(out_image);
       break;
 
     case 53:
