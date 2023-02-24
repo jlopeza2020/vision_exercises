@@ -191,25 +191,31 @@ cv::Mat image_fourier(cv::Mat input_img)
 void get_hv_frecuencies(cv::Mat image){
 
   //cv::Mat filter(image.rows, image.cols, CV_64FC4, cv::Scalar(0));
-  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32F);
+  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
+  //cv::Mat result = cv::Mat::ones(image.rows, image.cols, CV_32FC2);
+  int value = 25;
+  int min_col = (filter.cols / 2) - value;
+  int max_col = (filter.cols / 2) + value;
 
-  int cx = filter.cols / 2;
-  int cy = filter.rows / 2;
-  /*
+  int min_row = (filter.rows / 2) - value;
+  int max_row = (filter.rows / 2) + value;
+  
   for (int i = 0; i < filter.rows; i++){
     for (int j = 0; j < filter.cols; j++){
-      if (i == cy || j == cx){
+      if ((j > min_col && j < max_col) || (i > min_row && i < max_row)){
         filter.at<cv::Vec2f>(i,j)[0] = 1;
+        filter.at<cv::Vec2f>(i,j)[1] = 1;
       }
     }
-  }*/
-  //cv::Mat result;
-  filter(cv::Range(cy - 10, cy + 10), cv::Range(cx - 10, cx + 10)) = cv::Scalar(1);
-  //cv::mulSpectrums(image, filter, result, 0); // multiply 2 spectrums
-  std::cout << "image" << image.type() << std::endl;
-  std::cout << "filter" << filter.type() << std::endl;
+  }
 
-  cv::imshow("mask", filter);
+  //cv::Mat result;
+  //filter(cv::Range(cy - 10, cy + 10), cv::Range(cx - 10, cx + 10)) = 1.0f;
+  cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
+  //std::cout << "image" << image.type() << std::endl;
+  //std::cout << "filter" << filter.type() << std::endl;
+
+  //cv::imshow("mask", filter);
 
   //cv::imshow("multiplied", image);
 }
@@ -233,18 +239,19 @@ cv::Mat image_keep_filter(cv::Mat input_image)
   cv::Mat spectrum_filter = spectrum(rearrange);
 
   // Results
-  /*imshow("Input Image"        , I   );    // Show the result
-  imshow("Spectrum original"  , spectrum_original);
-  imshow("Spectrum filter"    , spectrum_filter);
+  //imshow("Input Image"        , I   );    // Show the result
+  //imshow("Spectrum original"  , spectrum_original);
+  //imshow("Spectrum filter"    , spectrum_filter);
 
   // Calculating the idft
-  Mat inverseTransform;
-  idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
-  normalize(inverseTransform, inverseTransform, 0, 1, NORM_MINMAX);
-  //imshow("Reconstructed", inverseTransform);*/
+  cv::Mat inverseTransform;
+  cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
+  cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
+  //imshow("Reconstructed", inverseTransform);
 
 
-  return spectrum_filter;
+  return inverseTransform;
+  //return spectrum_filter;
 
 }
 
