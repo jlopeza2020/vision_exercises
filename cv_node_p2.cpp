@@ -169,19 +169,10 @@ cv::Mat image_fourier(cv::Mat input_img)
   // Compute the Discrete fourier transform
   cv::Mat complexImg = computeDFT(gray_image);
 
-  // Get the spectrum
-  //cv::Mat spectrum_original = spectrum(complexImg);
-
-  // Crop and rearrange
-  //cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
-  //doSomethingWithTheSpectrum(shift_complex);   
-  //cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
 
   // Get the spectrum after the processing
-  //cv::Mat spectrum_filter = spectrum(rearrange);
   cv::Mat spectrum_filter = spectrum(complexImg);
 
-  //out = spectrum_filter;
   return spectrum_filter;
  
   
@@ -190,9 +181,8 @@ cv::Mat image_fourier(cv::Mat input_img)
 // image = shiffted_complex
 void get_hv_frecuencies(cv::Mat image){
 
-  //cv::Mat filter(image.rows, image.cols, CV_64FC4, cv::Scalar(0));
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
-  //cv::Mat result = cv::Mat::ones(image.rows, image.cols, CV_32FC2);
+
   int value = 25;
   int min_col = (filter.cols / 2) - value;
   int max_col = (filter.cols / 2) + value;
@@ -209,15 +199,8 @@ void get_hv_frecuencies(cv::Mat image){
     }
   }
 
-  //cv::Mat result;
-  //filter(cv::Range(cy - 10, cy + 10), cv::Range(cx - 10, cx + 10)) = 1.0f;
   cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
-  //std::cout << "image" << image.type() << std::endl;
-  //std::cout << "filter" << filter.type() << std::endl;
 
-  //cv::imshow("mask", filter);
-
-  //cv::imshow("multiplied", image);
 }
 
 cv::Mat image_keep_filter(cv::Mat input_image) 
@@ -231,23 +214,17 @@ cv::Mat image_keep_filter(cv::Mat input_image)
 
   // Crop and rearrange
   cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
-  //doSomethingWithTheSpectrum(shift_complex); 
+  // Processing vertical and horizontal frecuencies
   get_hv_frecuencies(shift_complex);  
   cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
 
   // Get the spectrum after the processing
   cv::Mat spectrum_filter = spectrum(rearrange);
 
-  // Results
-  //imshow("Input Image"        , I   );    // Show the result
-  //imshow("Spectrum original"  , spectrum_original);
-  //imshow("Spectrum filter"    , spectrum_filter);
-
   // Calculating the idft
   cv::Mat inverseTransform;
   cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
-  //imshow("Reconstructed", inverseTransform);
 
 
   return inverseTransform;
@@ -255,39 +232,58 @@ cv::Mat image_keep_filter(cv::Mat input_image)
 
 }
 
-/*cv::Mat image_remove_filter(cv::Mat img) 
-{
-  //v::Mat img = cv::imread("imagen.jpg", cv::IMREAD_GRAYSCALE); // Leer imagen en escala de grises
-  cv::Mat gray_img;
+// image = shiffted_complex
+void elim_hv_frecuencies(cv::Mat image){
 
-  cv::cvtColor(img , gray_img, cv::COLOR_BGR2GRAY);
-  cv::Mat img_float, img_dft;
-  gray_img.convertTo(img_float, CV_32FC2); // Convertir la imagen a tipo float
-  cv::dft(img_float, img_dft, cv::DFT_COMPLEX_OUTPUT); // Calcular la transformada de Fourier de la imagen
+  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
-  // Crear matriz filtro
-  cv::Mat filter_horizontal = cv::Mat::ones(1, gray_img.rows, CV_32F);
-  cv::Mat filter_vertical = cv::Mat::ones(gray_img.cols, 1, CV_32F);
-  cv::Mat filter = filter_vertical * filter_horizontal;
-  cv::Mat filter_mat;
-  cv::merge(std::vector<cv::Mat>{filter, filter}, filter_mat);
+  int value = 25;
+  int min_col = (filter.cols / 2) - value;
+  int max_col = (filter.cols / 2) + value;
 
-  // Aplicar filtro al espectro de Fourier
-  cv::Mat img_filtered;
-  cv::mulSpectrums(img_dft, filter_mat, img_filtered, 0);
-
-  // Calcular la transformada inversa de Fourier de la imagen filtrada
-  cv::Mat img_ifft;
-  img_ifft.convertTo(img_float, CV_32FC2); // Convertir la imagen a tipo float
-  cv::dft(img_filtered, img_ifft, cv::DFT_INVERSE | cv::DFT_REAL_OUTPUT);
-
-  // Normalizar la imagen inversa y mostrarla
-  cv::normalize(img_ifft, img_ifft, 0, 255, cv::NORM_MINMAX, CV_8U);
-  //cv::imshow("Imagen inversa", img_ifft);
-  //cv::waitKey(0);
-  return img_ifft;
+  int min_row = (filter.rows / 2) - value;
+  int max_row = (filter.rows / 2) + value;
   
-}*/
+  for (int i = 0; i < filter.rows; i++){
+    for (int j = 0; j < filter.cols; j++){
+      if  (! ((j > min_col && j <  max_col) || (i > min_row && i <  max_row))){
+        filter.at<cv::Vec2f>(i,j)[0] = 1;
+        filter.at<cv::Vec2f>(i,j)[1] = 1;
+      }
+    }
+  }
+
+  cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
+
+}
+
+cv::Mat image_remove_filter(cv::Mat input_image) 
+{
+  cv::Mat gray_image;
+
+  cv::cvtColor(input_image , gray_image, cv::COLOR_BGR2GRAY);
+  
+  // Compute the Discrete fourier transform
+  cv::Mat complexImg = computeDFT(gray_image);
+
+  // Crop and rearrange
+  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
+  // Processing vertical and horizontal frecuencies
+  elim_hv_frecuencies(shift_complex);  
+  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
+
+  // Get the spectrum after the processing
+  cv::Mat spectrum_filter = spectrum(rearrange);
+
+  // Calculating the idft
+  cv::Mat inverseTransform;
+  cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
+  cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
+
+  return inverseTransform;
+  //return spectrum_filter;
+  
+}
 
 /*void image_logic_and(cv::Mat processing_image) 
 {
@@ -331,12 +327,14 @@ cv::Mat image_processing(const cv::Mat in_image)
       last_key = 51;
       std::cout << "3: Keep Filter\n" << std::endl;
       out_image = image_keep_filter(in_image);
+      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 52:
       last_key = 52;
       std::cout << "4: Remove Filter\n" << std::endl;
-      //out_image = image_remove_filter(out_image);
+      out_image = image_remove_filter(out_image);
+      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     case 53:
