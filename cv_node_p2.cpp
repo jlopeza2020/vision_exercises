@@ -29,6 +29,9 @@
 
 int key;
 int last_key;
+int filter_val = 50;
+int d_times;
+//bool show_ft = false;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -83,7 +86,6 @@ cv::Mat image_gray(cv::Mat in_img)
   cv::Mat out_img;
 
   cv::cvtColor(in_img , out_img, cv::COLOR_BGR2GRAY);
-  cv::cvtColor(out_img , out_img, cv::COLOR_GRAY2BGR);
 
   return out_img;
 }
@@ -168,14 +170,10 @@ cv::Mat image_fourier(cv::Mat input_img)
   
   // Compute the Discrete fourier transform
   cv::Mat complexImg = computeDFT(gray_image);
-
-
   // Get the spectrum after the processing
   cv::Mat spectrum_filter = spectrum(complexImg);
 
   return spectrum_filter;
- 
-  
 }
 
 // image = shiffted_complex
@@ -183,7 +181,7 @@ void get_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
-  int value = 25;
+  int value = filter_val/2;
   int min_col = (filter.cols / 2) - value;
   int max_col = (filter.cols / 2) + value;
 
@@ -203,7 +201,7 @@ void get_hv_frecuencies(cv::Mat image){
 
 }
 
-cv::Mat image_keep_filter(cv::Mat input_image) 
+cv::Mat image_keep_filter(cv::Mat input_image, bool is_five) 
 {
   cv::Mat gray_image;
 
@@ -227,8 +225,11 @@ cv::Mat image_keep_filter(cv::Mat input_image)
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
 
-  return inverseTransform;
-  //return spectrum_filter;
+  if (is_five){
+    return spectrum_filter;
+  }else{
+    return inverseTransform;
+  }
 
 }
 
@@ -237,7 +238,7 @@ void elim_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
-  int value = 25;
+  int value = filter_val/2;
   int min_col = (filter.cols / 2) - value;
   int max_col = (filter.cols / 2) + value;
 
@@ -257,7 +258,7 @@ void elim_hv_frecuencies(cv::Mat image){
 
 }
 
-cv::Mat image_remove_filter(cv::Mat input_image) 
+cv::Mat image_remove_filter(cv::Mat input_image, bool is_five) 
 {
   cv::Mat gray_image;
 
@@ -280,8 +281,12 @@ cv::Mat image_remove_filter(cv::Mat input_image)
   cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
-  return inverseTransform;
-  //return spectrum_filter;
+  if (is_five){
+
+    return spectrum_filter;
+  }else{
+    return inverseTransform;
+  }
   
 }
 
@@ -293,7 +298,8 @@ cv::Mat image_processing(const cv::Mat in_image)
 {
   
   // Create output image
-  cv::Mat out_image;
+  cv::Mat out_image, remove_filter, keep_filter;
+  bool show_ft = false;
 
   out_image = in_image;
 
@@ -305,48 +311,149 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   }
 
+  // I am using ASCII code
   switch(key) {
+    // Option 1
     case 49:
       last_key = 49;
       std::cout << "1: GRAY\n" << std::endl;
+
       // image in gray
       out_image = image_gray(in_image);
+
+      // make the headings in red
+      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
+    // Option 2
     case 50:
       last_key = 50;
       std::cout << "2: Fourier\n" << std::endl;
       
       out_image = image_fourier(in_image);
       
-      // to make the headings in red
+      // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
+    // Option 3
     case 51:
       last_key = 51;
       std::cout << "3: Keep Filter\n" << std::endl;
-      out_image = image_keep_filter(in_image);
+
+      out_image = image_keep_filter(in_image, show_ft);
+
+      // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
+    // Option 4
     case 52:
       last_key = 52;
       std::cout << "4: Remove Filter\n" << std::endl;
-      out_image = image_remove_filter(out_image);
+
+      out_image = image_remove_filter(in_image, show_ft);
+
+      // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
+    // Option 5
     case 53:
       last_key = 53;
-      std::cout << "5: AND\n" << std::endl;
+      //std::cout << "5: AND\n" << std::endl;
       //image_logic_and(out_image);
+      break;
+
+    //d key 
+    case 100:
+      // is used only when option 5 is displaying
+      if (53 == last_key){
+        //show spectrum from option 3 and 4 and thresholds from 5
+        if (d_times == 0){
+          d_times += 1;
+          show_ft = true;
+
+          /*keep_filter = image_keep_filter(in_image, show_ft);
+          remove_filter = image_remove_filter(in_image, show_ft);
+
+          cv::imshow("keep_filter",keep_filter);
+          cv::imshow("remove_filter",remove_filter);*/
+
+          //std::cout << "show\n" << std::endl;
+        }else{
+          d_times -= 1;
+          cv::destroyWindow("keep_filter");
+          cv::destroyWindow("remove_filter");
+          //std::cout << "hide\n" << std::endl;
+        }
+        // show
+        // if times == 2
+        // hide
+      } 
+      break;
+    //x
+    case 120:
+    // 53 = 5
+      if (53 == last_key){
+        if(filter_val >= 50 && filter_val <= 99){
+          filter_val += 1;
+
+          // see how it increments
+          if (d_times == 1){
+            show_ft = true;
+
+            /*keep_filter = image_keep_filter(in_image, show_ft);
+            remove_filter = image_remove_filter(in_image, show_ft);
+
+            cv::imshow("keep_filter",keep_filter);
+            cv::imshow("remove_filter",remove_filter);*/
+
+          }
+        }
+        //std::cout << filter_val <<"\n" << std::endl;
+      }
+      break;
+
+    //z
+    case 122:
+      // 53 = 5
+      if (53 == last_key){
+        if(filter_val >= 51 && filter_val <= 100){
+          filter_val -= 1;
+
+          //see how it decrements
+          if (d_times == 1){
+            show_ft = true;
+
+            /*keep_filter = image_keep_filter(in_image, show_ft);
+            remove_filter = image_remove_filter(in_image, show_ft);
+
+            cv::imshow("keep_filter",keep_filter);
+            cv::imshow("remove_filter",remove_filter);*/
+
+          }
+
+        }
+        //std::cout << filter_val <<"\n" << std::endl;
+      }
       break;
   }
   
+  if (show_ft){
+    
+
+    keep_filter = image_keep_filter(in_image, show_ft);
+    remove_filter = image_remove_filter(in_image, show_ft);
+
+    cv::imshow("keep_filter",keep_filter);
+    cv::imshow("remove_filter",remove_filter);
+
+  }
+
   // Write text in an image
   cv::String text1 = "1:GRAY, 2:Fourier, 3:Keep Filter, 4:Remove Filter, 5: AND";
-  cv::String text2 = "[z,x]: -+ filter val: 50";
+  cv::String text2 = "[z,x]: -+ filter val: " + std::to_string(filter_val);
   cv::putText(out_image, text1 , cv::Point(10, 20),
   cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
   cv::putText(out_image, text2 , cv::Point(10, 40),
