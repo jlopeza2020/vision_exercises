@@ -201,8 +201,8 @@ void get_hv_frecuencies(cv::Mat image){
 
 }
 
-//cv::Mat image_keep_filter(cv::Mat input_image, bool is_five) 
-cv::Mat image_keep_filter(cv::Mat input_image)
+cv::Mat image_keep_filter(cv::Mat input_image, bool extra) 
+//cv::Mat image_keep_filter(cv::Mat input_image)
 {
   cv::Mat gray_image;
 
@@ -226,12 +226,11 @@ cv::Mat image_keep_filter(cv::Mat input_image)
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
 
-  /*if (is_five){
+  if (extra){
     return spectrum_filter;
   }else{
     return inverseTransform;
-  }*/
-  return inverseTransform;
+  }
 
 }
 
@@ -260,8 +259,8 @@ void elim_hv_frecuencies(cv::Mat image){
 
 }
 
-//cv::Mat image_remove_filter(cv::Mat input_image, bool is_five)
-cv::Mat image_remove_filter(cv::Mat input_image) 
+cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
+//cv::Mat image_remove_filter(cv::Mat input_image) 
 {
   cv::Mat gray_image;
 
@@ -284,14 +283,13 @@ cv::Mat image_remove_filter(cv::Mat input_image)
   cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
-  /*if (is_five){
+  if (extra){
 
     return spectrum_filter;
   }else{
     return inverseTransform;
-  }*/
+  }
   
-  return inverseTransform;
 }
 
 //threashold set at 0.6
@@ -337,18 +335,29 @@ cv::Mat threshold_option4(cv::Mat src){
   return dst;
 }
 
-/*void image_logic_and(cv::Mat input_image) 
+cv::Mat image_logic_and(cv::Mat in_image) 
 {
+  cv::Mat out_image, op3_img, op4_img, thrs_op3, thrs_op4;
+  std::cout << "5: AND\n" << std::endl;
+
+  op3_img = image_keep_filter(in_image, false);
+  thrs_op3 = threshold_option3(op3_img);
+
+  op4_img = image_remove_filter(in_image, false);
+  thrs_op4 = threshold_option4(op4_img);
+
+  bitwise_and(thrs_op3, thrs_op4, out_image);
+
+  return out_image;
   
-}*/
+}
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   
   // Create output image
-  cv::Mat out_image, remove_filter, keep_filter, op3_img, op4_img, thrs_op3, thrs_op4;
-  //bool show_ft = false;
-  //cv::Mat out_image(in_image.rows, in_image.cols, in_image.type());
+  cv::Mat out_image, remove_filter, keep_filter, thrs_op4, thrs_op3, op4_img, op3_img;
+  bool show_ft = false;
 
   out_image = in_image;
 
@@ -390,7 +399,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       last_key = 51;
       std::cout << "3: Keep Filter\n" << std::endl;
 
-      out_image = image_keep_filter(in_image);
+      out_image = image_keep_filter(in_image, false);
 
       // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
@@ -401,7 +410,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       last_key = 52;
       std::cout << "4: Remove Filter\n" << std::endl;
 
-      out_image = image_remove_filter(in_image);
+      out_image = image_remove_filter(in_image, false);
 
       // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
@@ -410,36 +419,30 @@ cv::Mat image_processing(const cv::Mat in_image)
     // Option 5
     case 53:
       last_key = 53;
-      std::cout << "5: AND\n" << std::endl;
-      op3_img = image_keep_filter(in_image);
-      thrs_op3 = threshold_option3(op3_img);
-
-      op4_img = image_remove_filter(in_image);
-      thrs_op4 = threshold_option4(op4_img);
-
-      bitwise_and(thrs_op3, thrs_op4, out_image);
-
-      cv::imshow("remove_filter_bw",thrs_op4);
-      cv::imshow("keep_filter_bw", thrs_op3);
-
+      out_image = image_logic_and(in_image);
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-      //image_logic_and(out_image);
+
       break;
 
     //d key 
     case 100:
       // is used only when option 5 is displaying
       if (53 == last_key){
+        //show option 5
+        out_image = image_logic_and(in_image);
+
         if (d_times == 0){
           //show spectrum from option 3 and 4 and thresholds from 5
           d_times += 1;
-          //show_ft = true;
+          show_ft = true;
 
         }else{
           //hide spectrum from option 3 and 4 and thresholds from 5
           d_times -= 1;
           cv::destroyWindow("keep_filter");
           cv::destroyWindow("remove_filter");
+          cv::destroyWindow("remove_filter_bw");
+          cv::destroyWindow("keep_filter_bw");
         }
       } 
       break;
@@ -448,11 +451,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 120:
     // is used only when option 5 is displaying
       if (53 == last_key){
+        //show option 5
+        out_image = image_logic_and(in_image);
         if(filter_val >= 50 && filter_val <= 99){
           filter_val += 1;
-          // to see how sprectrums increments
+          // to see how sprectrum increments
           if (d_times == 1){
-            //show_ft = true;
+            show_ft = true;
           }
         }
       }
@@ -462,11 +467,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 122:
       // is used only when option 5 is displaying
       if (53 == last_key){
+        //show option 5
+        out_image = image_logic_and(in_image);
         if(filter_val >= 51 && filter_val <= 100){
           filter_val -= 1;
-          // to see how sprectrums decrements
+          // to see how sprectrum decrements
           if (d_times == 1){
-            //show_ft = true;
+            show_ft = true;
           }
         }
       }
@@ -474,7 +481,6 @@ cv::Mat image_processing(const cv::Mat in_image)
   }
   
   // shows these images when d key is clicked
-  /*
   if (show_ft){
     
     keep_filter = image_keep_filter(in_image, show_ft);
@@ -483,10 +489,17 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::imshow("keep_filter",keep_filter);
     cv::imshow("remove_filter",remove_filter);
 
-    cv::imshow("remove_filter_bw",op3_img);
-    cv::imshow("keep_filter_bw", op4_img);
+    op3_img = image_keep_filter(in_image, false);
+    thrs_op3 = threshold_option3(op3_img);
+
+    op4_img = image_remove_filter(in_image, false);
+    thrs_op4 = threshold_option4(op4_img);
+
+    cv::imshow("remove_filter_bw",thrs_op4);
+    cv::imshow("keep_filter_bw", thrs_op3);
+
   }
-  */
+  
   // Write text in an image
   cv::String text1 = "1:GRAY, 2:Fourier, 3:Keep Filter, 4:Remove Filter, 5: AND";
   cv::String text2 = "[z,x]: -+ filter val: " + std::to_string(filter_val);
