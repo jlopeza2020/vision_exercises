@@ -176,7 +176,7 @@ cv::Mat image_fourier(cv::Mat input_img)
   return spectrum_filter;
 }
 
-// image = shiffted_complex
+//image has 2 channels
 void get_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
@@ -202,7 +202,6 @@ void get_hv_frecuencies(cv::Mat image){
 }
 
 cv::Mat image_keep_filter(cv::Mat input_image, bool extra) 
-//cv::Mat image_keep_filter(cv::Mat input_image)
 {
   cv::Mat gray_image;
 
@@ -225,7 +224,6 @@ cv::Mat image_keep_filter(cv::Mat input_image, bool extra)
   cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
-
   if (extra){
     return spectrum_filter;
   }else{
@@ -234,7 +232,7 @@ cv::Mat image_keep_filter(cv::Mat input_image, bool extra)
 
 }
 
-// image = shiffted_complex
+//image has 2 channels
 void elim_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
@@ -248,7 +246,7 @@ void elim_hv_frecuencies(cv::Mat image){
   
   for (int i = 0; i < filter.rows; i++){
     for (int j = 0; j < filter.cols; j++){
-      if  (! ((j > min_col && j <  max_col) || (i > min_row && i <  max_row))){
+      if  (! ((j > min_col && j <  max_col) || (i > min_row && i < max_row))){
         filter.at<cv::Vec2f>(i,j)[0] = 1;
         filter.at<cv::Vec2f>(i,j)[1] = 1;
       }
@@ -260,7 +258,6 @@ void elim_hv_frecuencies(cv::Mat image){
 }
 
 cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
-//cv::Mat image_remove_filter(cv::Mat input_image) 
 {
   cv::Mat gray_image;
 
@@ -284,7 +281,6 @@ cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
   if (extra){
-
     return spectrum_filter;
   }else{
     return inverseTransform;
@@ -338,7 +334,6 @@ cv::Mat threshold_option4(cv::Mat src){
 cv::Mat image_logic_and(cv::Mat in_image) 
 {
   cv::Mat out_image, op3_img, op4_img, thrs_op3, thrs_op4;
-  std::cout << "5: AND\n" << std::endl;
 
   op3_img = image_keep_filter(in_image, false);
   thrs_op3 = threshold_option3(op3_img);
@@ -376,7 +371,6 @@ cv::Mat image_processing(const cv::Mat in_image)
       last_key = 49;
       std::cout << "1: GRAY\n" << std::endl;
 
-      // image in gray
       out_image = image_gray(in_image);
 
       // make the headings in red
@@ -419,7 +413,10 @@ cv::Mat image_processing(const cv::Mat in_image)
     // Option 5
     case 53:
       last_key = 53;
+      std::cout << "5: AND\n" << std::endl;
+      
       out_image = image_logic_and(in_image);
+      // make the headings in red
       cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
 
       break;
@@ -432,12 +429,12 @@ cv::Mat image_processing(const cv::Mat in_image)
         out_image = image_logic_and(in_image);
 
         if (d_times == 0){
-          //show spectrum from option 3 and 4 and thresholds from 5
+          //show spectrum from option 3, 4 and thresholds from 5
           d_times += 1;
           show_ft = true;
 
         }else{
-          //hide spectrum from option 3 and 4 and thresholds from 5
+          //hide spectrum from option 3, 4 and thresholds from 5
           d_times -= 1;
           cv::destroyWindow("keep_filter");
           cv::destroyWindow("remove_filter");
