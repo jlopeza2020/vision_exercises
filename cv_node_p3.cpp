@@ -29,8 +29,9 @@
 
 int key;
 int last_key;
-int filter_val = 50;
-int d_times;
+int min_shrink_val = 0;
+int max_shrink_val = 30;
+//int d_times;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -90,7 +91,7 @@ cv::Mat image_gray(cv::Mat in_img)
 }
 
 // Compute the Discrete fourier transform
-cv::Mat computeDFT(const cv::Mat &image) {
+/*cv::Mat computeDFT(const cv::Mat &image) {
   // Expand the image to an optimal size. 
   cv::Mat padded;                      
   int m = cv::getOptimalDFTSize( image.rows );
@@ -105,10 +106,10 @@ cv::Mat computeDFT(const cv::Mat &image) {
   // Make the Discrete Fourier Transform
   dft(complexI, complexI, cv::DFT_COMPLEX_OUTPUT);      // this way the result may fit in the source matrix
   return complexI;
-}
+}*/
 
 // 6. Crop and rearrange
-cv::Mat fftShift(const cv::Mat &magI) {
+/*cv::Mat fftShift(const cv::Mat &magI) {
   cv::Mat magI_copy = magI.clone();
   // crop the spectrum, if it has an odd number of rows or columns
   magI_copy = magI_copy(cv::Rect(0, 0, magI_copy.cols & -2, magI_copy.rows & -2));
@@ -132,11 +133,11 @@ cv::Mat fftShift(const cv::Mat &magI) {
   tmp.copyTo(q2);
 
   return magI_copy;
-}
+}*/
 
 
 // Calculate dft spectrum
-cv::Mat spectrum(const cv::Mat &complexI) {
+/*cv::Mat spectrum(const cv::Mat &complexI) {
 
   cv::Mat complexImg = complexI.clone();
   // Shift quadrants
@@ -158,10 +159,10 @@ cv::Mat spectrum(const cv::Mat &complexI) {
   normalize(spectrum, spectrum, 0, 1, cv::NORM_MINMAX); // Transform the matrix with float values into a
                                                       // viewable image form (float between values 0 and 1).
   return spectrum;
-}
+}*/
 
 
-cv::Mat image_fourier(cv::Mat input_img) 
+/*cv::Mat image_fourier(cv::Mat input_img) 
 {
   cv::Mat gray_image;
 
@@ -173,10 +174,10 @@ cv::Mat image_fourier(cv::Mat input_img)
   cv::Mat spectrum_filter = spectrum(complexImg);
 
   return spectrum_filter;
-}
+}*/
 
 //image has 2 channels
-void get_hv_frecuencies(cv::Mat image){
+/*void get_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
@@ -198,9 +199,9 @@ void get_hv_frecuencies(cv::Mat image){
 
   cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
 
-}
+}*/
 
-cv::Mat image_keep_filter(cv::Mat input_image, bool extra) 
+/*cv::Mat image_keep_filter(cv::Mat input_image, bool extra) 
 {
   cv::Mat gray_image;
 
@@ -229,10 +230,10 @@ cv::Mat image_keep_filter(cv::Mat input_image, bool extra)
     return inverseTransform;
   }
 
-}
+}*/
 
 //image has 2 channels
-void elim_hv_frecuencies(cv::Mat image){
+/*void elim_hv_frecuencies(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
@@ -254,9 +255,9 @@ void elim_hv_frecuencies(cv::Mat image){
 
   cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
 
-}
+}*/
 
-cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
+/*cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
 {
   cv::Mat gray_image;
 
@@ -285,10 +286,10 @@ cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
     return inverseTransform;
   }
   
-}
+}*/
 
 //threashold set at 0.6
-cv::Mat threshold_option3(cv::Mat src){
+/*cv::Mat threshold_option3(cv::Mat src){
 
   cv::Mat dst(src.rows, src.cols, src.type());
   float threshold_p = 0.6;
@@ -307,10 +308,10 @@ cv::Mat threshold_option3(cv::Mat src){
   }
 
   return dst;
-}
+}*/
 
 //threashold set at 0.4
-cv::Mat threshold_option4(cv::Mat src){
+/*cv::Mat threshold_option4(cv::Mat src){
 
   cv::Mat dst(src.rows, src.cols, src.type());
   float threshold_p = 0.4;
@@ -328,9 +329,9 @@ cv::Mat threshold_option4(cv::Mat src){
   }
 
   return dst;
-}
+}*/
 
-cv::Mat image_logic_and(cv::Mat in_image) 
+/*cv::Mat image_logic_and(cv::Mat in_image) 
 {
   cv::Mat out_image, op3_img, op4_img, thrs_op3, thrs_op4;
 
@@ -344,14 +345,16 @@ cv::Mat image_logic_and(cv::Mat in_image)
 
   return out_image;
   
-}
+}*/
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   
   // Create output image
-  cv::Mat out_image, remove_filter, keep_filter, thrs_op4, thrs_op3, op4_img, op3_img;
-  bool show_ft = false;
+  cv::Mat out_image;
+  
+  // remove_filter, keep_filter, thrs_op4, thrs_op3, op4_img, op3_img
+  //bool show_ft = false;
 
   out_image = in_image;
 
@@ -371,54 +374,71 @@ cv::Mat image_processing(const cv::Mat in_image)
       //image in color
       std::cout << "1: Original in color\n" << std::endl;
 
-      //out_image = image_gray(in_image);
-
-      // make the headings in red
-      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     // Option 2
     case 50:
       last_key = 50;
       std::cout << "2: Original in GRAY\n" << std::endl;
-      
-      //out_image = image_fourier(in_image);
-      
-      
+      out_image = image_gray(in_image);
+
       break;
 
     // Option 3
     case 51:
       last_key = 51;
       std::cout << "3: Enhaced\n" << std::endl;
+ 
 
-      //out_image = image_keep_filter(in_image, false);
+      //out_image = image_enhaced(in_image);
 
       // make the headings in red
       //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
-    //x key 
+    //z key: decrements min value 
+    case 122:
+      // is used only when option 3 is displaying
+      if (51 == last_key){
+        // show option 3
+        if (min_shrink_val < max_shrink_val){
+          min_shrink_val -= 1;
+        }
+
+      }
+
+      break;
+
+    //x key: increments min value
     case 120:
     // is used only when option 3 is displaying
       if (51 == last_key){
-        //show option 3
-        //out_image = image_logic_and(in_image);
-        if(filter_val >= 50 && filter_val <= 99){
-          filter_val += 1;
+        // show option 3
+        if (min_shrink_val + 1 < max_shrink_val){
+          min_shrink_val += 1;
+        }
+
+      }
+      break;
+
+    //c key: decrements max value 
+    case 99:
+      // is used only when option 3 is displaying
+      if (51 == last_key){
+        // show option 3
+        if (min_shrink_val < max_shrink_val - 1){
+          max_shrink_val -= 1;
         }
       }
       break;
 
-    //z key 
-    case 122:
-      // is used only when option 5 is displaying
+    //v key: increments max value
+    case 118:
+    // is used only when option 3 is displaying
       if (51 == last_key){
-        //show option 3
-        //out_image = image_logic_and(in_image);
-        if(filter_val >= 51 && filter_val <= 100){
-          filter_val -= 1;
-          }
+        // show option 3
+        if (min_shrink_val < max_shrink_val){
+          max_shrink_val += 1;
         }
       }
       break;
