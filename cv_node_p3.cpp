@@ -409,7 +409,12 @@ cv::Mat aply_filter(cv::Mat in_image){
 
 cv:: Mat image_enhaced(cv::Mat in_image){ 
 
-  cv::Mat out_img = aply_filter(in_image);
+  // 1. Apply low pass filter over original image in gray scale 
+  cv::Mat image_low_pass = aply_filter(in_image);
+
+  // 2. Shrink histogram using keys
+  cv::Mat img_contrast;
+  cv::normalize(image_low_pass, img_contrast, min_shrink_val, max_shrink_val, cv::NORM_MINMAX);
 
  
   // Establish the number of bins
@@ -421,20 +426,16 @@ cv:: Mat image_enhaced(cv::Mat in_image){
 
   // Compute the histograms for each channel
   cv::Mat hist;
-  calcHist(&out_img, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
-  //calcHist(&bgr_planes[1], 1, 0, Mat(), g_hist, 1, &histSize, &histRange, uniform, accumulate);
-  //calcHist(&bgr_planes[2], 1, 0, Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&img_contrast, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
 
   // Draw the histograms for B, G and R
-  int hist_w = out_img.cols, hist_h = out_img.rows;
+  int hist_w = img_contrast.cols, hist_h = img_contrast.rows;
   int bin_w = cvRound( (double) hist_w / histSize);
 
   cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0) );
 
   // normalize the histograms between 0 and histImage.rows
-  //cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
-  //normalize(g_hist, g_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
-  //normalize(r_hist, r_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
+  cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
 
   // Draw the intensity line for histograms
   for (int i = 1; i < histSize; i++) {
@@ -442,22 +443,11 @@ cv:: Mat image_enhaced(cv::Mat in_image){
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i)) ),
       cv::Scalar(255, 0, 0), 2, 8, 0);
-    /*line(
-      histImage, Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1)) ),
-      Point(bin_w * (i), hist_h - cvRound(g_hist.at<float>(i)) ),
-      Scalar(0, 255, 0), 2, 8, 0);
-    line(
-      histImage, Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1)) ),
-      Point(bin_w * (i), hist_h - cvRound(r_hist.at<float>(i)) ),
-      Scalar(0, 0, 255), 2, 8, 0);*/
   }
 
   // Show images
   cv::imshow("calcHist Source", histImage);
-  return out_img;
-
-
-
+  return img_contrast;
 }
 
 cv::Mat image_processing(const cv::Mat in_image) 
