@@ -409,13 +409,15 @@ cv::Mat aply_filter(cv::Mat in_image){
 
 cv::Mat shrink_histogram(cv::Mat image){
 
-  cv::Mat dst(image.rows, image.cols, image.type());
+  cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
   float r_min = 0.0;
   float r_max = 255.0;
   
   for (int i = 0; i < image.rows; i++){
     for (int j = 0; j < image.cols; j++){
+      //std::cout << image.at<float>(i,j) << std::endl;
       dst.at<float>(i,j) = ((max_shrink_val - min_shrink_val)/(r_max - r_min))*(image.at<float>(i,j) - r_min) + min_shrink_val;
+      //std::cout << dst.at<float>(i,j) << std::endl;
     }
   }
 
@@ -424,15 +426,15 @@ cv::Mat shrink_histogram(cv::Mat image){
 
 cv::Mat expand_image(cv::Mat image){
 
-  cv::Mat dst(image.rows, image.cols, image.type());
-  //float min = 0.0;
-  //float max = 255.0;
+  cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
+  float min = 0.0;
+  float max = 255.0;
   
   for (int i = 0; i < image.rows; i++){
     for (int j = 0; j < image.cols; j++){
 
-      std::cout << image.at<float>(i,j) << std::endl;
-      //dst.at<float>(i,j) = ((image.at<float>(i,j)- 0.0)/(1.0 - 0.0))*(max - min) + min;
+      //std::cout << image.at<float>(i,j) << std::endl;
+      dst.at<float>(i,j) = ((image.at<float>(i,j)- 0.0)/(1.0 - 0.0))*(max - min) + min;
     }
   }
 
@@ -445,16 +447,36 @@ cv::Mat image_enhaced(cv::Mat in_image){
   cv::Mat image_low_pass = aply_filter(in_image);
 
   // 2. Shrink histogram using keys
-  cv::Mat image_contracted = shrink_histogram(image_low_pass);
+  cv::Mat image_shrinked = shrink_histogram(image_low_pass);
   //cv::normalize(image_low_pass, img_contrast, min_shrink_val, max_shrink_val, cv::NORM_MINMAX);
 
   // 3. Substract pixel to pixel image got in 
-  cv::Mat image_substracted;
-  cv::Mat gray_image(in_image.rows, in_image.cols, in_image.type());
+  //cv::Mat image_substracted;
+  cv::Mat image_substracted(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
+  //cv::Mat gray_image(in_image.rows, in_image.cols, in_image.type());
+  cv::Mat gray_image(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
+
   cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
   cv::normalize(gray_image, gray_image, 0.0, 1.0, cv::NORM_MINMAX);
-  cv::subtract(gray_image, image_contracted, image_substracted, cv::noArray(), CV_32FC1);
-  //cv::subtract(image_contracted,gray_image, image_substracted, cv::noArray(), CV_32FC1);
+
+  /*for (int i = 0; i < image_shrinked.rows; i++){
+    for (int j = 0; j < image_shrinked.cols; j++){
+      if (gray_image.at<float>(i,j) >= image_shrinked.at<float>(i,j)){
+
+        image_substracted.at<float>(i,j) = gray_image.at<float>(i,j) - image_shrinked.at<float>(i,j);
+      //std::cout << gray_image.at<float>(i,j) - image_shrinked.at<float>(i,j) << std::endl;
+      }else{ 
+
+        image_substracted.at<float>(i,j) = image_shrinked.at<float>(i,j) - gray_image.at<float>(i,j);
+      }
+
+      //std::cout << image_substracted.at<float>(i,j)  << std::endl;
+      
+      //std::cout << gray_image.at<float>(i,j) << std::endl;
+    }
+  }*/
+  cv::subtract(gray_image, image_shrinked, image_substracted, cv::noArray(), CV_32FC1);
+  //cv::subtract(image_shrinked,gray_image, image_substracted, cv::noArray(), CV_32FC1);
 
   // 4. Histogram expansion from 3. [0, 255]
 
@@ -467,7 +489,6 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
 
 
-
   // CREATE HISTOGRAM
   // Establish the number of bins
   int histSize = 256;
@@ -476,8 +497,8 @@ cv::Mat image_enhaced(cv::Mat in_image){
   const float * histRange = {range};
   bool uniform = true, accumulate = false;
 
-  cv::Mat hist_contracted, hist_substracted, hist_expanded;
-  calcHist(&image_contracted, 1, 0, cv::Mat(), hist_contracted, 1, &histSize, &histRange, uniform, accumulate);
+  cv::Mat hist_shrinked, hist_substracted, hist_expanded;
+  calcHist(&image_shrinked, 1, 0, cv::Mat(), hist_shrinked, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_substracted, 1, 0, cv::Mat(), hist_substracted, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_expanded, 1, 0, cv::Mat(), hist_expanded, 1, &histSize, &histRange, uniform, accumulate);
 
@@ -488,15 +509,15 @@ cv::Mat image_enhaced(cv::Mat in_image){
   cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0) );
 
   // normalize the histograms between 0 and histImage.rows
-  cv::normalize(hist_contracted, hist_contracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_shrinked, hist_shrinked, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   cv::normalize(hist_substracted, hist_substracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
  cv::normalize(hist_expanded, hist_expanded, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
 
   // Draw the intensity line for histograms
   for (int i = 1; i < histSize; i++) {
     cv::line(
-      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_contracted.at<float>(i - 1)) ),
-      cv::Point(bin_w * (i), hist_h - cvRound(hist_contracted.at<float>(i)) ),
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_shrinked.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_shrinked.at<float>(i)) ),
       cv::Scalar(0, 0, 255), 2, 8, 0);
     
     cv::line(
@@ -513,11 +534,13 @@ cv::Mat image_enhaced(cv::Mat in_image){
   // Show images
   cv::imshow("calcHist Source", histImage);
 
-  cv::imshow("contracted", image_contracted);
+  cv::imshow("contracted", image_shrinked);
   cv::imshow("substracted", image_substracted);
   ///cv::imshow("expanded", image_expanded);
 
   //return image_eq;
+
+
   return image_expanded;
 }
 
