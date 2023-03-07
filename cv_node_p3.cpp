@@ -407,16 +407,54 @@ cv::Mat aply_filter(cv::Mat in_image){
 
 }
 
-cv:: Mat image_enhaced(cv::Mat in_image){ 
+cv::Mat shrink_histogram(cv::Mat image){
+
+  cv::Mat dst(image.rows, image.cols, image.type());
+  float r_min = 0.0;
+  float r_max = 255.0;
+  
+  for (int i = 0; i < image.rows; i++){
+    for (int j = 0; j < image.cols; j++){
+      dst.at<float>(i,j) = ((max_shrink_val - min_shrink_val)/(r_max - r_min))*(image.at<float>(i,j) - r_min) + min_shrink_val;
+    }
+  }
+
+  return dst;
+
+
+}
+cv::Mat image_enhaced(cv::Mat in_image){ 
 
   // 1. Apply low pass filter over original image in gray scale 
   cv::Mat image_low_pass = aply_filter(in_image);
 
   // 2. Shrink histogram using keys
-  cv::Mat img_contrast;
-  cv::normalize(image_low_pass, img_contrast, min_shrink_val, max_shrink_val, cv::NORM_MINMAX);
+  cv::Mat image_contracted = shrink_histogram(image_low_pass);
+  //cv::normalize(image_low_pass, img_contrast, min_shrink_val, max_shrink_val, cv::NORM_MINMAX);
 
- 
+  // 3. Substract pixel to pixel image got in 
+  cv::Mat image_substracted;
+
+  cv::Mat gray_image(in_image.rows, in_image.cols, in_image.type());
+  cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
+  //cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX);
+
+ // int type = gray_image.type();
+  //int type2 = image_contracted.type();
+  //int tipo_datos = CV_MAT_TYPE(type);
+
+  //std::cout << "1 tipo" << type  << std::endl;
+  //std::cout << "2 tipo" << type2  << std::endl;
+
+  //cv::imshow("in", in_image);
+  //cv::imshow("gray", gray_image);
+
+  cv::subtract(gray_image, image_contracted, image_substracted, cv::noArray(), CV_8UC1);
+
+  
+  
+  //cv::subtract(image_contracted,gray_image, image_substracted, cv::noArray(), CV_8UC1);
+  
   // Establish the number of bins
   int histSize = 256;
   // Set the ranges (for normalized image) )
@@ -425,29 +463,40 @@ cv:: Mat image_enhaced(cv::Mat in_image){
   bool uniform = true, accumulate = false;
 
   // Compute the histograms for each channel
-  cv::Mat hist;
-  calcHist(&img_contrast, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
+  cv::Mat hist_contracted, hist_substracted;
+  calcHist(&image_contracted, 1, 0, cv::Mat(), hist_contracted, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&image_substracted, 1, 0, cv::Mat(), hist_substracted, 1, &histSize, &histRange, uniform, accumulate);
 
   // Draw the histograms for B, G and R
-  int hist_w = img_contrast.cols, hist_h = img_contrast.rows;
-  int bin_w = cvRound( (double) hist_w / histSize);
+  int hist_w = in_image.cols, hist_h = in_image.rows;
+  int bin_w = cvRound((double) hist_w / histSize);
 
   cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0) );
 
   // normalize the histograms between 0 and histImage.rows
-  cv::normalize(hist, hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_contracted, hist_contracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_substracted, hist_substracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
 
   // Draw the intensity line for histograms
   for (int i = 1; i < histSize; i++) {
     cv::line(
-      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist.at<float>(i - 1)) ),
-      cv::Point(bin_w * (i), hist_h - cvRound(hist.at<float>(i)) ),
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_contracted.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_contracted.at<float>(i)) ),
       cv::Scalar(255, 0, 0), 2, 8, 0);
+    
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_substracted.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_substracted.at<float>(i)) ),
+      cv::Scalar(255, 255, 0), 2, 8, 0);
   }
 
   // Show images
   cv::imshow("calcHist Source", histImage);
-  return img_contrast;
+
+  cv::imshow("contracted", image_contracted);
+  //cv::imshow("substracted", image_substracted);
+
+  return image_substracted;
 }
 
 cv::Mat image_processing(const cv::Mat in_image) 
@@ -505,7 +554,11 @@ cv::Mat image_processing(const cv::Mat in_image)
       // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
-        if (min_shrink_val < max_shrink_val){
+        out_image = image_enhaced(in_image);
+        // make the headings in red
+        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+
+        if ( 0 < min_shrink_val && min_shrink_val < max_shrink_val){
           min_shrink_val -= 1;
         }
 
@@ -518,6 +571,10 @@ cv::Mat image_processing(const cv::Mat in_image)
     // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
+        out_image = image_enhaced(in_image);
+        // make the headings in red
+        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+
         if (min_shrink_val + 1 < max_shrink_val){
           min_shrink_val += 1;
         }
@@ -530,6 +587,10 @@ cv::Mat image_processing(const cv::Mat in_image)
       // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
+        out_image = image_enhaced(in_image);
+        // make the headings in red
+        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+
         if (min_shrink_val < max_shrink_val - 1){
           max_shrink_val -= 1;
         }
@@ -541,7 +602,11 @@ cv::Mat image_processing(const cv::Mat in_image)
     // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
-        if (min_shrink_val < max_shrink_val){
+        out_image = image_enhaced(in_image);
+        // make the headings in red
+        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+
+        if (min_shrink_val < max_shrink_val  && max_shrink_val < 255){
           max_shrink_val += 1;
         }
       }
