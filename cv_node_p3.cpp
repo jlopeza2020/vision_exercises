@@ -452,6 +452,7 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
   // 3. Substract pixel to pixel image got in 
   //cv::Mat image_substracted;
+  //cv-8u
   cv::Mat image_substracted(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
   //cv::Mat gray_image(in_image.rows, in_image.cols, in_image.type());
   cv::Mat gray_image(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
@@ -479,12 +480,12 @@ cv::Mat image_enhaced(cv::Mat in_image){
   //cv::subtract(image_shrinked,gray_image, image_substracted, cv::noArray(), CV_32FC1);
 
   // 4. Histogram expansion from 3. [0, 255]
-
+  // normalize
   cv::Mat image_expanded = expand_image(image_substracted);
 
   // 5. Equalized image from 4 
   //cv::Mat image_eq, gray_img;
-  //cv::cvtColor(image_expanded , gray_img, cv::COLOR_BGR2GRAY);
+  //cv::cvtColor(image_expanded , gray_img, cv::COLOR_BGR2GRAY); // no hace falta
   //qualizeHist(gray_img, image_eq);
 
 
@@ -532,6 +533,7 @@ cv::Mat image_enhaced(cv::Mat in_image){
   }
 
   // Show images
+  // add legend 
   cv::imshow("calcHist Source", histImage);
 
   cv::imshow("contracted", image_shrinked);
