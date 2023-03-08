@@ -232,6 +232,61 @@ cv::Mat expand_image(cv::Mat image){
   return dst;
 
 }
+
+void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat image_expanded, cv::Mat image_eq){
+  // Establish the number of bins
+  int histSize = 256;
+  float range[] = {0, 255};       //the upper boundary is exclusive
+  const float * histRange = {range};
+  bool uniform = true, accumulate = false;
+
+  cv::Mat hist_shrinked, hist_substracted, hist_expanded, hist_eq;
+  calcHist(&image_shrinked, 1, 0, cv::Mat(), hist_shrinked, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&image_substracted, 1, 0, cv::Mat(), hist_substracted, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&image_expanded, 1, 0, cv::Mat(), hist_expanded, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&image_eq, 1, 0, cv::Mat(), hist_eq, 1, &histSize, &histRange, uniform, accumulate);
+
+  // Draw the histograms for B, G and R
+  int hist_w = image_shrinked.cols, hist_h = image_shrinked.rows;
+  int bin_w = cvRound((double) hist_w / histSize);
+
+  cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0) );
+
+  // normalize the histograms between 0 and histImage.rows
+  cv::normalize(hist_shrinked, hist_shrinked, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_substracted, hist_substracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_expanded, hist_expanded, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_eq, hist_eq, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+
+
+  // Draw the intensity line for histograms
+  for (int i = 1; i < histSize; i++) {
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_shrinked.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_shrinked.at<float>(i)) ),
+      cv::Scalar(0, 0, 255), 2, 8, 0);
+    
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_substracted.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_substracted.at<float>(i)) ),
+      cv::Scalar(255, 255, 0), 2, 8, 0);
+
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_expanded.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_expanded.at<float>(i)) ),
+      cv::Scalar(0, 255, 255), 2, 8, 0);
+
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_eq.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_eq.at<float>(i)) ),
+      cv::Scalar(0, 128, 0), 2, 8, 0);
+  }
+
+  // Show images
+  // add legend 
+  cv::imshow("calcHist Source", histImage);
+
+}
 cv::Mat image_enhaced(cv::Mat in_image){ 
 
   // 1. Apply low pass filter over original image in gray scale 
@@ -250,21 +305,13 @@ cv::Mat image_enhaced(cv::Mat in_image){
   //cv::Mat image_expanded = expand_image(image_substracted);
   cv::Mat image_expanded;
   cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-  //cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_32FC1);
-
 
   // 5. Equalized image from 4 
-  //cv::Mat image_eq, expanded_in_8u;
   cv::Mat image_eq;
-
-  //image_expanded.convertTo(expanded_in_8u, CV_8UC1);
-
-  //cv::equalizeHist(expanded_in_8u, image_eq);
   cv::equalizeHist(image_expanded, image_eq);
 
-
-
-
+  show_histograms(image_shrinked, image_substracted, image_expanded, image_eq);
+  /*
   // CREATE HISTOGRAM
   // Establish the number of bins
   int histSize = 256;
@@ -317,7 +364,7 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
   // Show images
   // add legend 
-  cv::imshow("calcHist Source", histImage);
+  cv::imshow("calcHist Source", histImage);*/
 
   //cv::imshow("contracted", image_shrinked);
   //cv::imshow("substracted", image_substracted);
