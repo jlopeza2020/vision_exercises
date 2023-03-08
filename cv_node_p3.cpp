@@ -135,7 +135,6 @@ cv::Mat fftShift(const cv::Mat &magI) {
   return magI_copy;
 }
 
-
 // Calculate dft spectrum
 cv::Mat spectrum(const cv::Mat &complexI) {
 
@@ -161,192 +160,6 @@ cv::Mat spectrum(const cv::Mat &complexI) {
   return spectrum;
 }
 
-
-/*cv::Mat image_fourier(cv::Mat input_img) 
-{
-  cv::Mat gray_image;
-
-  cv::cvtColor(input_img , gray_image, cv::COLOR_BGR2GRAY);
-  
-  // Compute the Discrete fourier transform
-  cv::Mat complexImg = computeDFT(gray_image);
-  // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(complexImg);
-
-  return spectrum_filter;
-}*/
-
-//image has 2 channels
-/*void get_hv_frecuencies(cv::Mat image){
-
-  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
-
-  int value = filter_val/2;
-  int min_col = (filter.cols / 2) - value;
-  int max_col = (filter.cols / 2) + value;
-
-  int min_row = (filter.rows / 2) - value;
-  int max_row = (filter.rows / 2) + value;
-  
-  for (int i = 0; i < filter.rows; i++){
-    for (int j = 0; j < filter.cols; j++){
-      if ((j > min_col && j < max_col) || (i > min_row && i < max_row)){
-        filter.at<cv::Vec2f>(i,j)[0] = 1;
-        filter.at<cv::Vec2f>(i,j)[1] = 1;
-      }
-    }
-  }
-
-  cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
-
-}*/
-
-/*cv::Mat image_keep_filter(cv::Mat input_image, bool extra) 
-{
-  cv::Mat gray_image;
-
-  cv::cvtColor(input_image , gray_image, cv::COLOR_BGR2GRAY);
-  
-  // Compute the Discrete fourier transform
-  cv::Mat complexImg = computeDFT(gray_image);
-
-  // Crop and rearrange
-  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
-  // Processing vertical and horizontal frecuencies
-  get_hv_frecuencies(shift_complex);  
-  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
-
-  // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(rearrange);
-
-  // Calculating the idft
-  cv::Mat inverseTransform;
-  cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
-  cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
-
-  if (extra){
-    return spectrum_filter;
-  }else{
-    return inverseTransform;
-  }
-
-}*/
-
-//image has 2 channels
-/*void elim_hv_frecuencies(cv::Mat image){
-
-  cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
-
-  int value = filter_val/2;
-  int min_col = (filter.cols / 2) - value;
-  int max_col = (filter.cols / 2) + value;
-
-  int min_row = (filter.rows / 2) - value;
-  int max_row = (filter.rows / 2) + value;
-  
-  for (int i = 0; i < filter.rows; i++){
-    for (int j = 0; j < filter.cols; j++){
-      if  (! ((j > min_col && j <  max_col) || (i > min_row && i < max_row))){
-        filter.at<cv::Vec2f>(i,j)[0] = 1;
-        filter.at<cv::Vec2f>(i,j)[1] = 1;
-      }
-    }
-  }
-
-  cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
-
-}*/
-
-/*cv::Mat image_remove_filter(cv::Mat input_image, bool extra)
-{
-  cv::Mat gray_image;
-
-  cv::cvtColor(input_image , gray_image, cv::COLOR_BGR2GRAY);
-  
-  // Compute the Discrete fourier transform
-  cv::Mat complexImg = computeDFT(gray_image);
-
-  // Crop and rearrange
-  cv::Mat shift_complex = fftShift(complexImg); // Rearrange quadrants - Spectrum with low values at center - Theory mode
-  // Processing vertical and horizontal frecuencies
-  elim_hv_frecuencies(shift_complex);  
-  cv::Mat rearrange = fftShift(shift_complex); // Rearrange quadrants - Spectrum with low values at corners - OpenCV mode
-
-  // Get the spectrum after the processing
-  cv::Mat spectrum_filter = spectrum(rearrange);
-
-  // Calculating the idft
-  cv::Mat inverseTransform;
-  cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
-  cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
-
-  if (extra){
-    return spectrum_filter;
-  }else{
-    return inverseTransform;
-  }
-  
-}*/
-
-//threashold set at 0.6
-/*cv::Mat threshold_option3(cv::Mat src){
-
-  cv::Mat dst(src.rows, src.cols, src.type());
-  float threshold_p = 0.6;
-
-  for (int i = 0; i < src.rows; i++){
-    for (int j = 0; j < src.cols; j++){
-
-      //just there is one channel
-      if (src.at<float>(i,j) > threshold_p){
-        dst.at<float>(i,j) = 1.0;
-      }else{
-        dst.at<float>(i,j) = 0.0;
-      }
-
-    }
-  }
-
-  return dst;
-}*/
-
-//threashold set at 0.4
-/*cv::Mat threshold_option4(cv::Mat src){
-
-  cv::Mat dst(src.rows, src.cols, src.type());
-  float threshold_p = 0.4;
-  
-  for (int i = 0; i < src.rows; i++){
-    for (int j = 0; j < src.cols; j++){
-
-      //just there is one channel
-      if (src.at<float>(i,j) > threshold_p){
-        dst.at<float>(i,j) = 1.0;
-      }else{
-        dst.at<float>(i,j) = 0.0;
-      }
-    }
-  }
-
-  return dst;
-}*/
-
-/*cv::Mat image_logic_and(cv::Mat in_image) 
-{
-  cv::Mat out_image, op3_img, op4_img, thrs_op3, thrs_op4;
-
-  op3_img = image_keep_filter(in_image, false);
-  thrs_op3 = threshold_option3(op3_img);
-
-  op4_img = image_remove_filter(in_image, false);
-  thrs_op4 = threshold_option4(op4_img);
-
-  bitwise_and(thrs_op3, thrs_op4, out_image);
-
-  return out_image;
-  
-}*/
-
 void low_pass_filter(cv::Mat image){
 
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
@@ -354,22 +167,6 @@ void low_pass_filter(cv::Mat image){
   cv::Point center(filter.cols/2, filter.rows/2);
 
   cv::circle(filter, center, 50, 1, -1);
-
-  /*int value = filter_val/2;
-  int min_col = (filter.cols / 2) - value;
-  int max_col = (filter.cols / 2) + value;
-
-  int min_row = (filter.rows / 2) - value;
-  int max_row = (filter.rows / 2) + value;
-  
-  for (int i = 0; i < filter.rows; i++){
-    for (int j = 0; j < filter.cols; j++){
-      if  (! ((j > min_col && j <  max_col) || (i > min_row && i < max_row))){
-        filter.at<cv::Vec2f>(i,j)[0] = 1;
-        filter.at<cv::Vec2f>(i,j)[1] = 1;
-      }
-    }
-  }*/
 
   cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
 
@@ -399,12 +196,7 @@ cv::Mat aply_filter(cv::Mat in_image){
   cv::idft(rearrange, inverseTransform, cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
-  cv::imshow("spectrum",spectrum_filter);
-
   return inverseTransform;
-
-
-
 }
 
 cv::Mat shrink_histogram(cv::Mat image){
@@ -415,7 +207,6 @@ cv::Mat shrink_histogram(cv::Mat image){
   
   for (int i = 0; i < image.rows; i++){
     for (int j = 0; j < image.cols; j++){
-      //std::cout << image.at<float>(i,j) << std::endl;
       dst.at<float>(i,j) = ((max_shrink_val - min_shrink_val)/(r_max - r_min))*(image.at<float>(i,j) - r_min) + min_shrink_val;
       //std::cout << dst.at<float>(i,j) << std::endl;
     }
@@ -448,67 +239,40 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
   // 2. Shrink histogram using keys
   cv::Mat image_shrinked = shrink_histogram(image_low_pass);
-  //cv::normalize(image_low_pass, img_contrast, min_shrink_val, max_shrink_val, cv::NORM_MINMAX);
 
   // 3. Substract pixel to pixel image got in 
-  //cv::Mat image_substracted;
-  //cv-8u
   cv::Mat image_substracted(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
-  //cv::Mat gray_image(in_image.rows, in_image.cols, in_image.type());
   cv::Mat gray_image(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
-
   cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
-  //cv::normalize(gray_image, gray_image, 0.0, 1.0, cv::NORM_MINMAX);
-
-  /*for (int i = 0; i < image_shrinked.rows; i++){
-    for (int j = 0; j < image_shrinked.cols; j++){
-      if (gray_image.at<float>(i,j) >= image_shrinked.at<float>(i,j)){
-
-        image_substracted.at<float>(i,j) = gray_image.at<float>(i,j) - image_shrinked.at<float>(i,j);
-      //std::cout << gray_image.at<float>(i,j) - image_shrinked.at<float>(i,j) << std::endl;
-      }else{ 
-
-        image_substracted.at<float>(i,j) = image_shrinked.at<float>(i,j) - gray_image.at<float>(i,j);
-      }
-
-      //std::cout << image_substracted.at<float>(i,j)  << std::endl;
-      
-      //std::cout << gray_image.at<float>(i,j) << std::endl;
-    }
-  }*/
   cv::subtract(gray_image, image_shrinked, image_substracted, cv::noArray(), CV_32FC1);
-  //cv::subtract(image_shrinked,gray_image, image_substracted, cv::noArray(), CV_32FC1);
 
-  // 4. Histogram expansion from 3. [0, 255]
-  // normalize
   // I tried using this function made by myself but it didn't work 
   //cv::Mat image_expanded = expand_image(image_substracted);
   cv::Mat image_expanded;
-  cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+  cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_32FC1);
 
   // 5. Equalized image from 4 
   cv::Mat image_eq, expanded_in_8u;
-  //cv::cvtColor(image_expanded , gray_img, cv::COLOR_BGR2GRAY); // no hace falta
-  //cv::Mat img_8UC1 = cv::convertScaleAbs(image_expanded);
+  
+  image_expanded.convertTo(expanded_in_8u, CV_8UC1);
 
-  //image_expanded.convertTo(expanded_in_8u, CV_8UC1);
-      //gray_image.convertTo(float_image, CV_32F);
-  cv::equalizeHist(image_expanded, image_eq);
+  cv::equalizeHist(expanded_in_8u, image_eq);
 
 
 
   // CREATE HISTOGRAM
   // Establish the number of bins
   int histSize = 256;
-  // Set the ranges (for normalized image) )
-  float range[] = {0, 1};       //the upper boundary is exclusive
+
+  float range[] = {0, 255};       //the upper boundary is exclusive
   const float * histRange = {range};
   bool uniform = true, accumulate = false;
 
-  cv::Mat hist_shrinked, hist_substracted, hist_expanded;
+  cv::Mat hist_shrinked, hist_substracted, hist_expanded, hist_eq;
   calcHist(&image_shrinked, 1, 0, cv::Mat(), hist_shrinked, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_substracted, 1, 0, cv::Mat(), hist_substracted, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_expanded, 1, 0, cv::Mat(), hist_expanded, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&image_eq, 1, 0, cv::Mat(), hist_eq, 1, &histSize, &histRange, uniform, accumulate);
 
   // Draw the histograms for B, G and R
   int hist_w = in_image.cols, hist_h = in_image.rows;
@@ -519,7 +283,9 @@ cv::Mat image_enhaced(cv::Mat in_image){
   // normalize the histograms between 0 and histImage.rows
   cv::normalize(hist_shrinked, hist_shrinked, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   cv::normalize(hist_substracted, hist_substracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
- cv::normalize(hist_expanded, hist_expanded, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_expanded, hist_expanded, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(hist_eq, hist_eq, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+
 
   // Draw the intensity line for histograms
   for (int i = 1; i < histSize; i++) {
@@ -537,20 +303,26 @@ cv::Mat image_enhaced(cv::Mat in_image){
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_expanded.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist_expanded.at<float>(i)) ),
       cv::Scalar(0, 255, 255), 2, 8, 0);
+
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_eq.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(hist_eq.at<float>(i)) ),
+      cv::Scalar(0, 128, 0), 2, 8, 0);
   }
 
   // Show images
   // add legend 
   cv::imshow("calcHist Source", histImage);
 
-  cv::imshow("contracted", image_shrinked);
-  cv::imshow("substracted", image_substracted);
-  cv::imshow("expanded", image_expanded);
+  //cv::imshow("contracted", image_shrinked);
+  //cv::imshow("substracted", image_substracted);
+  //cv::imshow("expanded", image_expanded);
 
   return image_eq;
-
-
   //return image_expanded;
+
+
+
 }
 
 cv::Mat image_processing(const cv::Mat in_image) 
@@ -558,11 +330,6 @@ cv::Mat image_processing(const cv::Mat in_image)
   
   // Create output image
   cv::Mat out_image;
-  
-  
-  // remove_filter, keep_filter, thrs_op4, thrs_op3, op4_img, op3_img
-  //bool show_ft = false;
-
   out_image = in_image;
 
   key = cv::pollKey();
@@ -579,7 +346,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 49:
       last_key = 49;
       std::cout << "1: Original in color\n" << std::endl;
-
       break;
 
     // Option 2
@@ -594,9 +360,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 51:
       last_key = 51;
       std::cout << "3: Enhaced\n" << std::endl;
-
- 
-
       out_image = image_enhaced(in_image);
 
       // make the headings in red
@@ -615,9 +378,7 @@ cv::Mat image_processing(const cv::Mat in_image)
         if ( 0 < min_shrink_val && min_shrink_val < max_shrink_val){
           min_shrink_val -= 1;
         }
-
       }
-
       break;
 
     //x key: increments min value
@@ -632,7 +393,6 @@ cv::Mat image_processing(const cv::Mat in_image)
         if (min_shrink_val + 1 < max_shrink_val){
           min_shrink_val += 1;
         }
-
       }
       break;
 
@@ -668,7 +428,7 @@ cv::Mat image_processing(const cv::Mat in_image)
   }
   
   // Write text in an image
-  cv::String text1 = "1:Original, 2:Gray, 3:Enhaced | shrink [z-,x+]: min | [c-,v+]: max";
+  cv::String text1 = "1: Original, 2: Gray, 3: Enhaced | shrink [z-,x+]: min | [c-,v+]: max";
   cv::String text2 = "shrink [min: " + std::to_string(min_shrink_val) + ", max: "+ std::to_string(max_shrink_val)+"]";
   cv::putText(out_image, text1 , cv::Point(10, 20),
   cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
