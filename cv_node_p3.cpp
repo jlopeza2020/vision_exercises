@@ -458,7 +458,7 @@ cv::Mat image_enhaced(cv::Mat in_image){
   cv::Mat gray_image(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
 
   cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
-  cv::normalize(gray_image, gray_image, 0.0, 1.0, cv::NORM_MINMAX);
+  //cv::normalize(gray_image, gray_image, 0.0, 1.0, cv::NORM_MINMAX);
 
   /*for (int i = 0; i < image_shrinked.rows; i++){
     for (int j = 0; j < image_shrinked.cols; j++){
@@ -481,12 +481,19 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
   // 4. Histogram expansion from 3. [0, 255]
   // normalize
-  cv::Mat image_expanded = expand_image(image_substracted);
+  // I tried using this function made by myself but it didn't work 
+  //cv::Mat image_expanded = expand_image(image_substracted);
+  cv::Mat image_expanded;
+  cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
   // 5. Equalized image from 4 
-  //cv::Mat image_eq, gray_img;
+  cv::Mat image_eq, expanded_in_8u;
   //cv::cvtColor(image_expanded , gray_img, cv::COLOR_BGR2GRAY); // no hace falta
-  //qualizeHist(gray_img, image_eq);
+  //cv::Mat img_8UC1 = cv::convertScaleAbs(image_expanded);
+
+  //image_expanded.convertTo(expanded_in_8u, CV_8UC1);
+      //gray_image.convertTo(float_image, CV_32F);
+  cv::equalizeHist(image_expanded, image_eq);
 
 
 
@@ -538,12 +545,12 @@ cv::Mat image_enhaced(cv::Mat in_image){
 
   cv::imshow("contracted", image_shrinked);
   cv::imshow("substracted", image_substracted);
-  ///cv::imshow("expanded", image_expanded);
+  cv::imshow("expanded", image_expanded);
 
-  //return image_eq;
+  return image_eq;
 
 
-  return image_expanded;
+  //return image_expanded;
 }
 
 cv::Mat image_processing(const cv::Mat in_image) 
