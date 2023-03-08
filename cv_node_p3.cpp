@@ -249,14 +249,19 @@ cv::Mat image_enhaced(cv::Mat in_image){
   // I tried using this function made by myself but it didn't work 
   //cv::Mat image_expanded = expand_image(image_substracted);
   cv::Mat image_expanded;
-  cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_32FC1);
+  cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+  //cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_32FC1);
+
 
   // 5. Equalized image from 4 
-  cv::Mat image_eq, expanded_in_8u;
-  
-  image_expanded.convertTo(expanded_in_8u, CV_8UC1);
+  //cv::Mat image_eq, expanded_in_8u;
+  cv::Mat image_eq;
 
-  cv::equalizeHist(expanded_in_8u, image_eq);
+  //image_expanded.convertTo(expanded_in_8u, CV_8UC1);
+
+  //cv::equalizeHist(expanded_in_8u, image_eq);
+  cv::equalizeHist(image_expanded, image_eq);
+
 
 
 
