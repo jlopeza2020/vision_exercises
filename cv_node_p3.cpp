@@ -161,12 +161,16 @@ cv::Mat spectrum(const cv::Mat &complexI) {
 
 void low_pass_filter(cv::Mat image){
 
+  // create a filter filled with 0.0 with 2 channel for the multiplication
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
 
+  // draw a circle in the center of the image filled with 1.0 
+  // -1 equal to fill the whole circle 
   cv::Point center(filter.cols/2, filter.rows/2);
   cv::circle(filter, center, 50, 1, -1);
 
-  cv::mulSpectrums(image, filter, image, 0); // multiply 2 spectrums
+  // multiply 2 spectrums
+  cv::mulSpectrums(image, filter, image, 0);
 
 }
 
@@ -174,10 +178,9 @@ cv::Mat aply_filter(cv::Mat in_image){
 
   //set image in gray
   cv::Mat gray_image;
-
   cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
 
-   // Compute the Discrete fourier transform
+  // Compute the Discrete fourier transform
   cv::Mat complexImg = computeDFT(gray_image);
 
   // Crop and rearrange
@@ -197,6 +200,7 @@ cv::Mat aply_filter(cv::Mat in_image){
   return inverseTransform;
 }
 
+// using formula from the powerpoint
 cv::Mat shrink_histogram(cv::Mat image){
 
   cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
@@ -211,6 +215,7 @@ cv::Mat shrink_histogram(cv::Mat image){
   return dst;
 }
 
+// using formula from the powerpoint
 cv::Mat expand_image(cv::Mat image){
 
   cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
@@ -225,28 +230,44 @@ cv::Mat expand_image(cv::Mat image){
   return dst;
 }
 
-void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat image_expanded, cv::Mat image_eq, cv::Mat image_gray){
+void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat image_expanded, cv::Mat image_eq, cv::Mat img_gray, cv::Mat in_img){
+  
+  // Split BGR planes
+  std::vector<cv::Mat> bgr_planes;
+  cv::split(in_img, bgr_planes);
   
   // Establish the number of bins
-  int histSize = 256;
+  int histSize = 255;
   float range[] = {0, 255};       //the upper boundary is exclusive
   const float * histRange = {range};
   bool uniform = true, accumulate = false;
+
+    // Compute the histograms for each channel
+  cv::Mat b_hist, g_hist, r_hist;
+  calcHist(&bgr_planes[0], 1, 0, cv::Mat(), b_hist, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&bgr_planes[1], 1, 0, cv::Mat(), g_hist, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&bgr_planes[2], 1, 0, cv::Mat(), r_hist, 1, &histSize, &histRange, uniform, accumulate);
+
 
   cv::Mat hist_shrinked, hist_substracted, hist_expanded, hist_eq, hist_gray;
   calcHist(&image_shrinked, 1, 0, cv::Mat(), hist_shrinked, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_substracted, 1, 0, cv::Mat(), hist_substracted, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_expanded, 1, 0, cv::Mat(), hist_expanded, 1, &histSize, &histRange, uniform, accumulate);
   calcHist(&image_eq, 1, 0, cv::Mat(), hist_eq, 1, &histSize, &histRange, uniform, accumulate);
-  calcHist(&image_gray, 1, 0, cv::Mat(), hist_gray, 1, &histSize, &histRange, uniform, accumulate);
+  calcHist(&img_gray, 1, 0, cv::Mat(), hist_gray, 1, &histSize, &histRange, uniform, accumulate);
 
   // Draw the histograms for B, G and R
-  int hist_w = image_shrinked.cols, hist_h = image_shrinked.rows;
+  int hist_w = image_shrinked.cols , hist_h = image_shrinked.rows;
   int bin_w = cvRound((double) hist_w / histSize);
 
   cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0, 0, 0) );
 
   // normalize the histograms between 0 and histImage.rows
+
+  cv::normalize(b_hist, b_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(g_hist, g_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+  cv::normalize(r_hist, r_hist, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
+
   cv::normalize(hist_shrinked, hist_shrinked, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   cv::normalize(hist_substracted, hist_substracted, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
   cv::normalize(hist_expanded, hist_expanded, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat() );
@@ -255,36 +276,54 @@ void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat 
 
   // Draw the intensity line for histograms
   for (int i = 1; i < histSize; i++) {
+    // original image 
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(b_hist.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(b_hist.at<float>(i)) ),
+      cv::Scalar(255, 0, 0), 2, 8, 0);
+
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(g_hist.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(g_hist.at<float>(i)) ),
+      cv::Scalar(255, 0, 0), 2, 8, 0);
+
+    cv::line(
+      histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(r_hist.at<float>(i - 1)) ),
+      cv::Point(bin_w * (i), hist_h - cvRound(r_hist.at<float>(i)) ),
+      cv::Scalar(255, 0, 0), 2, 8, 0);
+
+    // shrinked image
     cv::line(
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_shrinked.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist_shrinked.at<float>(i)) ),
       cv::Scalar(0, 0, 255), 2, 8, 0);
-    
+
+    // substracted image
     cv::line(
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_substracted.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist_substracted.at<float>(i)) ),
       cv::Scalar(255, 255, 0), 2, 8, 0);
 
+    // expanded image
     cv::line(
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_expanded.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist_expanded.at<float>(i)) ),
       cv::Scalar(0, 255, 255), 2, 8, 0);
 
+    // equalized image
     cv::line(
       histImage, cv::Point(bin_w * (i - 1), hist_h - cvRound(hist_eq.at<float>(i - 1)) ),
       cv::Point(bin_w * (i), hist_h - cvRound(hist_eq.at<float>(i)) ),
       cv::Scalar(0, 128, 0), 2, 8, 0);
+
   }
 
-  //hist = cv2.calcHist([img], [0], None, [256], [0, 256])
-
-  // calculate correlation  hist_shrinked
+  // calculate correlation
   float result_shrink = compareHist(hist_gray, hist_shrinked, cv::HISTCMP_CORREL);
   float result_subtract = compareHist(hist_gray, hist_substracted, cv::HISTCMP_CORREL);
   float result_stretch = compareHist(hist_gray, hist_expanded, cv::HISTCMP_CORREL);
   float result_eq = compareHist(hist_gray, hist_eq, cv::HISTCMP_CORREL);
 
-  
   // legend for the histogram 
   cv::String text_shrink = "Shrink [" + std::to_string(min_shrink_val) + ","+ std::to_string(max_shrink_val)+"]: " + std::to_string(result_shrink);
   cv::putText(histImage, text_shrink , cv::Point(10, 20),
@@ -302,34 +341,41 @@ void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat 
   cv::putText(histImage, text_eq, cv::Point(10, 80),
   cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 128, 0));
 
-  cv::imshow("calcHist Source", histImage);
+  cv::imshow("Histograms", histImage);
 
 }
 cv::Mat image_enhaced(cv::Mat in_image){ 
 
   // 1. Apply low pass filter over original image in gray scale 
-  cv::Mat image_low_pass = aply_filter(in_image);
+  cv::Mat image_low_pass = aply_filter(in_image); // this image is in 32FC1
 
   // 2. Shrink histogram using keys
-  cv::Mat image_shrinked = shrink_histogram(image_low_pass);
+  cv::Mat image_shrinked = shrink_histogram(image_low_pass); // this image is in 32FC1
 
-  // 3. Substract pixel to pixel image got in 
+  // 3. Substract pixel to pixel gray image to the one shrinked 
   cv::Mat image_substracted(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
   cv::Mat gray_image(in_image.rows, in_image.cols, CV_32FC1, cv::Scalar(0.0));
   cv::cvtColor(in_image , gray_image, cv::COLOR_BGR2GRAY);
+  // Since gray and shrinked are in 32FC1, we need that the output 
+  // from substraction must have the same type.
   cv::subtract(gray_image, image_shrinked, image_substracted, cv::noArray(), CV_32FC1);
 
-  // I tried using this function made by myself but it didn't work 
+  // 4.Expand histogram
+  // I tried using this function made by myself but it didn't work with the values set.
+  // If you change 255 to 1, then it works but in this way; it wouldn't satisfy the statement.
   //cv::Mat image_expanded = expand_image(image_substracted);
   cv::Mat image_expanded;
+  // since equalizeHist needs a 8U matrix as an input, normalize the image 
+  // (that is equivalent to expand image) making it being type 8UC1
   cv::normalize(image_substracted, image_expanded, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
   // 5. Equalized image from 4 
   cv::Mat image_eq;
   cv::equalizeHist(image_expanded, image_eq);
 
-  show_histograms(image_shrinked, image_substracted, image_expanded, image_eq, gray_image);
+  show_histograms(image_shrinked, image_substracted, image_expanded, image_eq, gray_image, in_image);
   
+  // tracking images
   //cv::imshow("contracted", image_shrinked);
   //cv::imshow("substracted", image_substracted);
   //cv::imshow("expanded", image_expanded);
@@ -344,15 +390,13 @@ cv::Mat image_processing(const cv::Mat in_image)
   cv::Mat out_image;
   out_image = in_image;
 
+  // ASCII code
   key = cv::pollKey();
 
   if (key == -1){
-
     key = last_key;
-
   }
 
-  // I am using ASCII code
   switch(key) {
     // Option 1
     case 49:
@@ -387,7 +431,7 @@ cv::Mat image_processing(const cv::Mat in_image)
         // make the headings in red
         cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
 
-        if ( 0 < min_shrink_val && min_shrink_val < max_shrink_val){
+        if (0 < min_shrink_val && min_shrink_val < max_shrink_val){
           min_shrink_val -= 1;
         }
       }
@@ -425,7 +469,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     //v key: increments max value
     case 118:
-    // is used only when option 3 is displaying
+      // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
         out_image = image_enhaced(in_image);
