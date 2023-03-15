@@ -80,17 +80,17 @@ class ComputerVisionSubscriber : public rclcpp::Node
   TO-DO COMPLETE THIS PART 
 **/
 
-cv::Mat image_gray(cv::Mat in_img)
+/*cv::Mat image_gray(cv::Mat in_img)
 {
   cv::Mat out_img;
 
   cv::cvtColor(in_img , out_img, cv::COLOR_BGR2GRAY);
 
   return out_img;
-}
+}*/
 
 // Compute the Discrete fourier transform
-cv::Mat computeDFT(const cv::Mat &image) {
+/*cv::Mat computeDFT(const cv::Mat &image) {
   // Expand the image to an optimal size. 
   cv::Mat padded;                      
   int m = cv::getOptimalDFTSize( image.rows );
@@ -105,10 +105,10 @@ cv::Mat computeDFT(const cv::Mat &image) {
   // Make the Discrete Fourier Transform
   dft(complexI, complexI, cv::DFT_COMPLEX_OUTPUT);      // this way the result may fit in the source matrix
   return complexI;
-}
+}*/
 
 // 6. Crop and rearrange
-cv::Mat fftShift(const cv::Mat &magI) {
+/*cv::Mat fftShift(const cv::Mat &magI) {
   cv::Mat magI_copy = magI.clone();
   // crop the spectrum, if it has an odd number of rows or columns
   magI_copy = magI_copy(cv::Rect(0, 0, magI_copy.cols & -2, magI_copy.rows & -2));
@@ -132,10 +132,10 @@ cv::Mat fftShift(const cv::Mat &magI) {
   tmp.copyTo(q2);
 
   return magI_copy;
-}
+}*/
 
 // Calculate dft spectrum
-cv::Mat spectrum(const cv::Mat &complexI) {
+/*cv::Mat spectrum(const cv::Mat &complexI) {
 
   cv::Mat complexImg = complexI.clone();
   // Shift quadrants
@@ -157,9 +157,9 @@ cv::Mat spectrum(const cv::Mat &complexI) {
   normalize(spectrum, spectrum, 0, 1, cv::NORM_MINMAX); // Transform the matrix with float values into a
                                                       // viewable image form (float between values 0 and 1).
   return spectrum;
-}
+}*/
 
-void low_pass_filter(cv::Mat image){
+/*void low_pass_filter(cv::Mat image){
 
   // create a filter filled with 0.0 with 2 channel for the multiplication
   cv::Mat filter = cv::Mat::zeros(image.rows, image.cols, CV_32FC2);
@@ -172,9 +172,9 @@ void low_pass_filter(cv::Mat image){
   // multiply 2 spectrums
   cv::mulSpectrums(image, filter, image, 0);
 
-}
+}*/
 
-cv::Mat aply_filter(cv::Mat in_image){
+/*cv::Mat aply_filter(cv::Mat in_image){
 
   //set image in gray
   cv::Mat gray_image;
@@ -198,10 +198,10 @@ cv::Mat aply_filter(cv::Mat in_image){
   cv::normalize(inverseTransform, inverseTransform, 0, 1, cv::NORM_MINMAX);
 
   return inverseTransform;
-}
+}*/
 
 // using formula from the powerpoint
-cv::Mat shrink_histogram(cv::Mat image){
+/*cv::Mat shrink_histogram(cv::Mat image){
 
   cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
   float r_min = 0.0;
@@ -213,10 +213,10 @@ cv::Mat shrink_histogram(cv::Mat image){
     }
   }
   return dst;
-}
+}*/
 
 // using formula from the powerpoint
-cv::Mat expand_image(cv::Mat image){
+/*cv::Mat expand_image(cv::Mat image){
 
   cv::Mat dst(image.rows, image.cols, CV_32FC1, cv::Scalar(0.0));
   float min = 0.0;
@@ -228,9 +228,9 @@ cv::Mat expand_image(cv::Mat image){
     }
   }
   return dst;
-}
+}*/
 
-void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat image_expanded, cv::Mat image_eq, cv::Mat img_gray, cv::Mat in_img){
+/*void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat image_expanded, cv::Mat image_eq, cv::Mat img_gray, cv::Mat in_img){
   
   // Split BGR planes from in img
   std::vector<cv::Mat> bgr_planes;
@@ -342,8 +342,8 @@ void show_histograms(cv::Mat image_shrinked, cv::Mat image_substracted, cv::Mat 
 
   cv::imshow("Histograms", histImage);
 
-}
-cv::Mat image_enhaced(cv::Mat in_image){ 
+}*/
+c/*v::Mat image_enhaced(cv::Mat in_image){ 
 
   // 1. Apply low pass filter over original image in gray scale 
   cv::Mat image_low_pass = aply_filter(in_image); // this image is in 32FC1
@@ -380,7 +380,7 @@ cv::Mat image_enhaced(cv::Mat in_image){
   //cv::imshow("expanded", image_expanded);
 
   return image_eq;
-}
+}*/
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -422,7 +422,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       break;
 
     //z key: decrements min value 
-    case 122:
+    /*case 122:
       // is used only when option 3 is displaying
       if (51 == last_key){
         // show option 3
@@ -479,7 +479,7 @@ cv::Mat image_processing(const cv::Mat in_image)
           max_shrink_val += 1;
         }
       }
-      break;
+      break;*/
   }
   
   // Write text in an image
