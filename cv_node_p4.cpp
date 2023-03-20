@@ -28,11 +28,7 @@
 #include <opencv2/highgui/highgui.hpp>
 
 int key;
-int last_key;
 bool print_once = true;
-//int min_shrink_val = 0;
-//int max_shrink_val = 30;
-
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -388,148 +384,61 @@ cv::Mat image_processing(const cv::Mat in_image)
 {
   
   // Create output image
-  //int print_once = 0;
   cv::Mat out_image;
   out_image = in_image;
 
-  // ASCII code
   key = cv::pollKey();
 
-  if (key == -1){
-    key = last_key;
-  }
+  int max_value_choose_opt = 3;
+  int init_value_choose_opt = 0;
+  int max_value_hough = 200;
+  int init_value_hough = 100;
+  int max_value_area = 1000;
+  int init_value_area = 100;
 
-  switch(key) {
-    // Option 0
-    case 48:
-      last_key = 48;
-      std::cout << "0: Original in color\n" << std::endl;
-      break;
-
-    // Option 1
-    case 49:
-      last_key = 49;
-      std::cout << "1:Green tags detector\n" << std::endl;
-      //out_image = green_tags_dt(in_image);
-
-      break;
-
-    // Option 2
-    case 50:
-      last_key = 50;
-      std::cout << "2: Blue balls detector\n" << std::endl;
-      //out_image = blue_balls_dt(in_image);
-
-      // make the headings in red
-      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-      break;
-
-    // Option 3
-    case 51:
-      last_key = 51;
-      std::cout << "3: Get contours from opt1 and opt2\n" << std::endl;
-      //out_image = get_contourns(in_image);
-
-      // make the headings in red
-      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-      break;
-
-    //z key: decrements min value 
-    /*case 122:
-      // is used only when option 3 is displaying
-      if (51 == last_key){
-        // show option 3
-        out_image = image_enhaced(in_image);
-        // make the headings in red
-        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-
-        if (0 < min_shrink_val && min_shrink_val < max_shrink_val){
-          min_shrink_val -= 1;
-        }
-      }
-      break;
-
-    //x key: increments min value
-    case 120:
-    // is used only when option 3 is displaying
-      if (51 == last_key){
-        // show option 3
-        out_image = image_enhaced(in_image);
-        // make the headings in red
-        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-
-        if (min_shrink_val + 1 < max_shrink_val){
-          min_shrink_val += 1;
-        }
-      }
-      break;
-
-    //c key: decrements max value 
-    case 99:
-      // is used only when option 3 is displaying
-      if (51 == last_key){
-        // show option 3
-        out_image = image_enhaced(in_image);
-        // make the headings in red
-        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-
-        if (min_shrink_val < max_shrink_val - 1){
-          max_shrink_val -= 1;
-        }
-      }
-      break;
-
-    //v key: increments max value
-    case 118:
-      // is used only when option 3 is displaying
-      if (51 == last_key){
-        // show option 3
-        out_image = image_enhaced(in_image);
-        // make the headings in red
-        cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
-
-        if (min_shrink_val < max_shrink_val  && max_shrink_val < 255){
-          max_shrink_val += 1;
-        }
-      }
-      break;*/
-  }
-  
-  // Write text in an image
-  //cv::String text1 = "1: Original, 2: Gray, 3: Enhaced | shrink [z-,x+]: min | [c-,v+]: max";
-  //cv::String text2 = "shrink [min: " + std::to_string(min_shrink_val) + ", max: "+ std::to_string(max_shrink_val)+"]";
-  ///cv::putText(out_image, text1 , cv::Point(10, 20),
-  //cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
-  //cv::putText(out_image, text2 , cv::Point(10, 40),
-  //cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
-
-
-  //init_setup_trackbar();
-  int max_value = 3;
-  int value = 0;
   if(print_once){
     cv::namedWindow("P4");
-    cv::createTrackbar("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", nullptr, max_value, 0);
-    cv::setTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", value);
+    cv::createTrackbar("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", nullptr, max_value_choose_opt, 0);
+    cv::setTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", init_value_choose_opt);
+    cv::createTrackbar("Hough accumulator", "P4", nullptr, max_value_hough, 0);
+    cv::setTrackbarPos("Hough accumulator", "P4", init_value_hough);
+    cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
+    cv::setTrackbarPos("Area", "P4", init_value_area);
     print_once = false;
   }
 
-  //cv::namedWindow("window_name");
 
-  // create Trackbar and add to a window
-  //cv::createTrackbar("trackbar_text", "window_name", nullptr, max_value, 0);
-  // set Trackbar’s value
-  //cv::setTrackbarPos("trackbar_text", "window_name", value);
-  // get Trackbar’s value
-  int pos = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
+  int value_choose_opt = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
+  //int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
+  //int value_area = cv::getTrackbarPos("Area", "P4");
 
-  //std::cout << "pos: " << pos << std::endl;
+  switch(value_choose_opt) {
 
+    case 0:
+      std::cout << "0: Original in color\n" << std::endl;
+      break;
+
+    case 1:
+      std::cout << "1:Green tags detector\n" << std::endl;
+      //out_image = green_tags_dt(in_image, value_hough, value_area);
+
+      break;
+
+    case 2:
+      std::cout << "2: Blue balls detector\n" << std::endl;
+      //out_image = blue_balls_dt(in_image, value_hough, value_area);
+
+      break;
+
+    case 3:
+      std::cout << "3: Get contours from opt1 and opt2\n" << std::endl;
+      //out_image = get_contourns(in_image, value_hough, value_area);
+
+      break;
+  }
+    
   // Show image in a different window
   cv::imshow("P4",out_image);
-
-  //cv::createTrackbar("trackbar_text", "window_name", nullptr, max_value, 0);
-  //print_once++;
 
   return out_image;
 }
