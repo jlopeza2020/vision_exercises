@@ -380,6 +380,53 @@ class ComputerVisionSubscriber : public rclcpp::Node
   return image_eq;
 }*/
 
+cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
+
+  cv::Mat img_inHSV,out_img, green_dt, cpy_in_img;
+
+
+  cpy_in_img = in_image.clone();
+
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+
+  //# Convierte la imagen a espacio de color HSV
+  //hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+  //# Define el rango de colores que quieres detectar en formato HSV
+  //lower_green = numpy.array([36, 25, 25]);
+  //upper_green = numpy.array([70, 255, 255]);
+
+  // Detect the object in green
+  cv::inRange(img_inHSV, cv::Scalar(36, 25, 25), cv::Scalar(70,255,255), green_dt);
+
+ 
+  //cv::bitwise_and(in_image,img_green_fitered, out_img);
+  
+  //cv::cvtColor(in_image , in_image, cv::COLOR_BGR2GRAY);
+
+  // Edge detection
+  Canny(green_dt, out_img, 50, 200, 3);
+
+  std::vector<cv::Vec2f> lines;   // will hold the results of the detection (rho, theta)
+  HoughLines(out_img, lines, 1, CV_PI / 180, value_hough, 0, 0);   // runs the actual detection
+
+  // Draw the lines
+  for (size_t i = 0; i < lines.size(); i++) {
+    float rho = lines[i][0], theta = lines[i][1];
+    cv::Point pt1, pt2;
+    double a = cos(theta), b = sin(theta);
+    double x0 = a * rho, y0 = b * rho;
+    pt1.x = cvRound(x0 + 1000 * (-b));
+    pt1.y = cvRound(y0 + 1000 * ( a));
+    pt2.x = cvRound(x0 - 1000 * (-b));
+    pt2.y = cvRound(y0 - 1000 * ( a));
+    line(cpy_in_img, pt1, pt2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+  }
+
+
+  return out_img;
+}
+
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   
@@ -409,7 +456,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
 
   int value_choose_opt = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
-  //int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
+  int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
   //int value_area = cv::getTrackbarPos("Area", "P4");
 
   switch(value_choose_opt) {
@@ -420,7 +467,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     case 1:
       std::cout << "1:Green tags detector\n" << std::endl;
-      //out_image = green_tags_dt(in_image, value_hough, value_area);
+      out_image = green_tags_dt(in_image, value_hough);
 
       break;
 
