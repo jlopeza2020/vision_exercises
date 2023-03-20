@@ -343,7 +343,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
   cv::imshow("Histograms", histImage);
 
 }*/
-c/*v::Mat image_enhaced(cv::Mat in_image){ 
+/*cv::Mat image_enhaced(cv::Mat in_image){ 
 
   // 1. Apply low pass filter over original image in gray scale 
   cv::Mat image_low_pass = aply_filter(in_image); // this image is in 32FC1
@@ -397,28 +397,38 @@ cv::Mat image_processing(const cv::Mat in_image)
   }
 
   switch(key) {
+    // Option 0
+    case 48:
+      last_key = 48;
+      std::cout << "0: Original in color\n" << std::endl;
+      break;
+
     // Option 1
     case 49:
       last_key = 49;
-      std::cout << "1: Original in color\n" << std::endl;
+      std::cout << "1:Green tags detector\n" << std::endl;
+      //out_image = green_tags_dt(in_image);
+
       break;
 
     // Option 2
     case 50:
       last_key = 50;
-      std::cout << "2: Original in GRAY\n" << std::endl;
-      out_image = image_gray(in_image);
+      std::cout << "2: Blue balls detector\n" << std::endl;
+      //out_image = blue_balls_dt(in_image);
 
+      // make the headings in red
+      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     // Option 3
     case 51:
       last_key = 51;
-      std::cout << "3: Enhaced\n" << std::endl;
-      out_image = image_enhaced(in_image);
+      std::cout << "3: Get contorns from opt1 and opt2\n" << std::endl;
+      //out_image = get_contourns(in_image);
 
       // make the headings in red
-      cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
+      //cv::cvtColor(out_image , out_image, cv::COLOR_GRAY2BGR);
       break;
 
     //z key: decrements min value 
@@ -483,12 +493,12 @@ cv::Mat image_processing(const cv::Mat in_image)
   }
   
   // Write text in an image
-  cv::String text1 = "1: Original, 2: Gray, 3: Enhaced | shrink [z-,x+]: min | [c-,v+]: max";
-  cv::String text2 = "shrink [min: " + std::to_string(min_shrink_val) + ", max: "+ std::to_string(max_shrink_val)+"]";
-  cv::putText(out_image, text1 , cv::Point(10, 20),
-  cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
-  cv::putText(out_image, text2 , cv::Point(10, 40),
-  cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
+  //cv::String text1 = "1: Original, 2: Gray, 3: Enhaced | shrink [z-,x+]: min | [c-,v+]: max";
+  //cv::String text2 = "shrink [min: " + std::to_string(min_shrink_val) + ", max: "+ std::to_string(max_shrink_val)+"]";
+  ///cv::putText(out_image, text1 , cv::Point(10, 20),
+  //cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
+  //cv::putText(out_image, text2 , cv::Point(10, 40),
+  //cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 
   // Show image in a different window
   cv::imshow("out_image",out_image);
