@@ -380,29 +380,32 @@ class ComputerVisionSubscriber : public rclcpp::Node
   return image_eq;
 }*/
 
+cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
+
+  cv::Mat img_inHSV, blue_dt, cpy_in_img;
+  
+  // create a clone of input image
+  cpy_in_img = in_image.clone();
+
+  // convert image in hsv 
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+  // Detect the object in green
+  cv::inRange(img_inHSV, cv::Scalar(100, 100, 20), cv::Scalar(125,255,255), blue_dt);
+
+  return blue_dt;
+
+}
 cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
 
   cv::Mat img_inHSV,out_img, green_dt, cpy_in_img;
 
-
+  // create a clone of input image
   cpy_in_img = in_image.clone();
 
+  // convert image in hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-
-  //# Convierte la imagen a espacio de color HSV
-  //hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-  //# Define el rango de colores que quieres detectar en formato HSV
-  //lower_green = numpy.array([36, 25, 25]);
-  //upper_green = numpy.array([70, 255, 255]);
-
   // Detect the object in green
   cv::inRange(img_inHSV, cv::Scalar(36, 25, 25), cv::Scalar(70,255,255), green_dt);
-
- 
-  //cv::bitwise_and(in_image,img_green_fitered, out_img);
-  
-  //cv::cvtColor(in_image , in_image, cv::COLOR_BGR2GRAY);
 
   // Edge detection
   Canny(green_dt, out_img, 50, 200, 3);
@@ -423,8 +426,7 @@ cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
     line(cpy_in_img, pt1, pt2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
   }
 
-
-  return out_img;
+  return cpy_in_img;
 }
 
 cv::Mat image_processing(const cv::Mat in_image) 
@@ -473,7 +475,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     case 2:
       std::cout << "2: Blue balls detector\n" << std::endl;
-      //out_image = blue_balls_dt(in_image, value_hough, value_area);
+      out_image = blue_balls_dt(in_image, value_hough);
 
       break;
 
