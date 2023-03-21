@@ -382,7 +382,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
 cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
 
-  cv::Mat img_inHSV, blue_dt, cpy_in_img;
+  cv::Mat img_inHSV, blue_dt, cpy_in_img, out_img;
   
   // create a clone of input image
   cpy_in_img = in_image.clone();
@@ -390,9 +390,29 @@ cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
   // convert image in hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
   // Detect the object in green
-  cv::inRange(img_inHSV, cv::Scalar(100, 100, 20), cv::Scalar(125,255,255), blue_dt);
+  cv::inRange(img_inHSV, cv::Scalar(94, 100, 23), cv::Scalar(126,255,255), blue_dt);
 
-  return blue_dt;
+  // Edge detection
+  Canny(blue_dt, out_img, 50, 200, 3);
+
+  std::vector<cv::Vec3f> circles;
+  HoughCircles(
+    out_img, circles, cv::HOUGH_GRADIENT, 1,
+    out_img.rows / 160,             // change this value to detect circles with different distances to each other
+    value_hough, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
+  );
+
+  for (size_t i = 0; i < circles.size(); i++) {
+    cv::Vec3i c = circles[i];
+    cv::Point center = cv::Point(c[0], c[1]);
+    // circle center
+    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 100, 100), 3, cv::LINE_AA);
+    // circle outline
+    int radius = c[2];
+    cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 255), 3, cv::LINE_AA);
+  }
+
+  return cpy_in_img;
 
 }
 cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
@@ -405,7 +425,7 @@ cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
   // convert image in hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
   // Detect the object in green
-  cv::inRange(img_inHSV, cv::Scalar(36, 25, 25), cv::Scalar(70,255,255), green_dt);
+  cv::inRange(img_inHSV, cv::Scalar(64, 58, 25), cv::Scalar(80,255,255), green_dt);
 
   // Edge detection
   Canny(green_dt, out_img, 50, 200, 3);
@@ -429,6 +449,25 @@ cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
   return cpy_in_img;
 }
 
+cv::Mat get_hsv(cv::Mat in_image, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
+
+  cv::Mat img_inHSV, green_dt;
+
+
+  // convert image in hsv 
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+  // Detect the object in green
+  cv::inRange(img_inHSV, cv::Scalar(min_h, min_s, min_v), cv::Scalar(max_h,max_s,max_v), green_dt);
+
+  // Edge detection
+  //Canny(green_dt, out_img, 50, 200, 3);
+
+  //std::vector<cv::Vec2f> lines;   // will hold the results of the detection (rho, theta)
+  //HoughLines(out_img, lines, 1, CV_PI / 180, value_hough, 0, 0);   // runs the actual detection
+
+  return green_dt;
+}
+
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   
@@ -442,8 +481,16 @@ cv::Mat image_processing(const cv::Mat in_image)
   int init_value_choose_opt = 0;
   int max_value_hough = 200;
   int init_value_hough = 100;
-  int max_value_area = 1000;
-  int init_value_area = 100;
+  //int max_value_area = 1000;
+  //int init_value_area = 100;
+
+  /*int max_h = 255;
+  int max_s =  255;
+  int max_v =  255;
+  int min_h = 255;
+  int min_s =  255;
+  int min_v =  255;
+  int zero = 0;*/
 
   if(print_once){
     cv::namedWindow("P4");
@@ -451,8 +498,23 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::setTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", init_value_choose_opt);
     cv::createTrackbar("Hough accumulator", "P4", nullptr, max_value_hough, 0);
     cv::setTrackbarPos("Hough accumulator", "P4", init_value_hough);
-    cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
-    cv::setTrackbarPos("Area", "P4", init_value_area);
+    //cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
+    //cv::setTrackbarPos("Area", "P4", init_value_area);
+
+    /*cv::createTrackbar("max H", "P4", nullptr, max_h, 0);
+    cv::setTrackbarPos("max H", "P4", zero);
+    cv::createTrackbar("max S", "P4", nullptr, max_s, 0);
+    cv::setTrackbarPos("max S", "P4", zero);
+    cv::createTrackbar("max V", "P4", nullptr, max_v, 0);
+    cv::setTrackbarPos("max V", "P4", zero);
+
+    cv::createTrackbar("min H", "P4", nullptr, min_h, 0);
+    cv::setTrackbarPos("min H", "P4", zero);
+    cv::createTrackbar("min S", "P4", nullptr, min_s, 0);
+    cv::setTrackbarPos("min S", "P4", zero);
+    cv::createTrackbar("min V", "P4", nullptr, min_v, 0);
+    cv::setTrackbarPos("min V", "P4", zero);*/
+
     print_once = false;
   }
 
@@ -460,6 +522,13 @@ cv::Mat image_processing(const cv::Mat in_image)
   int value_choose_opt = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
   int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
   //int value_area = cv::getTrackbarPos("Area", "P4");
+
+  /*int gt_max_h = cv::getTrackbarPos("max H", "P4");
+  int gt_max_s = cv::getTrackbarPos("max S", "P4");
+  int gt_max_v = cv::getTrackbarPos("max V", "P4");
+  int gt_min_h = cv::getTrackbarPos("min H", "P4");
+  int gt_min_s = cv::getTrackbarPos("min S", "P4");
+  int gt_min_v = cv::getTrackbarPos("min V", "P4");*/
 
   switch(value_choose_opt) {
 
@@ -470,6 +539,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 1:
       std::cout << "1:Green tags detector\n" << std::endl;
       out_image = green_tags_dt(in_image, value_hough);
+      //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
 
       break;
 
@@ -488,6 +558,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     
   // Show image in a different window
   cv::imshow("P4",out_image);
+  cv::imshow("P42",in_image);
 
   return out_image;
 }
