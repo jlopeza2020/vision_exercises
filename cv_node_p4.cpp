@@ -380,7 +380,8 @@ class ComputerVisionSubscriber : public rclcpp::Node
   return image_eq;
 }*/
 
-cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
+// usar momenets y contors 
+cv::Mat blue_balls_dt(cv::Mat in_image, bool is_opt3){
 
   cv::Mat img_inHSV, blue_dt, cpy_in_img, out_img;
   
@@ -395,11 +396,12 @@ cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
   // Edge detection
   Canny(blue_dt, out_img, 50, 200, 3);
 
+
   std::vector<cv::Vec3f> circles;
   HoughCircles(
     out_img, circles, cv::HOUGH_GRADIENT, 1,
     out_img.rows / 160,             // change this value to detect circles with different distances to each other
-    value_hough, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
+    200, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
   );
 
   for (size_t i = 0; i < circles.size(); i++) {
@@ -412,10 +414,16 @@ cv::Mat blue_balls_dt(cv::Mat in_image, int value_hough){
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 255), 3, cv::LINE_AA);
   }
 
-  return cpy_in_img;
 
+  if(is_opt3){
+    return out_img;
+    
+  }else{
+    return cpy_in_img;
+  }
 }
-cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
+
+cv::Mat green_tags_dt(cv::Mat in_image, int value_hough, bool is_opt3){
 
   cv::Mat img_inHSV,out_img, green_dt, cpy_in_img;
 
@@ -446,7 +454,28 @@ cv::Mat green_tags_dt(cv::Mat in_image, int value_hough){
     line(cpy_in_img, pt1, pt2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
   }
 
-  return cpy_in_img;
+  if(is_opt3){
+
+    return out_img;
+    
+  }else{
+    return cpy_in_img;
+  }
+}
+
+
+cv::Mat get_contourns(cv::Mat in_image, int value_hough, int value_area){
+
+  cv::Mat tags_detected = green_tags_dt(in_image, value_hough, true);
+  cv::Mat balls_detected = blue_balls_dt(in_image, true);
+
+  cv::Mat and_images = tags_detected + balls_detected;
+  // using bitwise does not work
+
+  // extraer contornos y centros
+  // gaussian blur 
+
+  return and_images;
 }
 
 cv::Mat get_hsv(cv::Mat in_image, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
@@ -473,16 +502,16 @@ cv::Mat image_processing(const cv::Mat in_image)
   
   // Create output image
   cv::Mat out_image;
-  out_image = in_image;
-
-  key = cv::pollKey();
 
   int max_value_choose_opt = 3;
   int init_value_choose_opt = 0;
   int max_value_hough = 200;
   int init_value_hough = 100;
-  //int max_value_area = 1000;
-  //int init_value_area = 100;
+  int max_value_area = 1000;
+  int init_value_area = 100;
+
+
+  key = cv::pollKey();
 
   /*int max_h = 255;
   int max_s =  255;
@@ -498,8 +527,8 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::setTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", init_value_choose_opt);
     cv::createTrackbar("Hough accumulator", "P4", nullptr, max_value_hough, 0);
     cv::setTrackbarPos("Hough accumulator", "P4", init_value_hough);
-    //cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
-    //cv::setTrackbarPos("Area", "P4", init_value_area);
+    cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
+    cv::setTrackbarPos("Area", "P4", init_value_area);
 
     /*cv::createTrackbar("max H", "P4", nullptr, max_h, 0);
     cv::setTrackbarPos("max H", "P4", zero);
@@ -521,7 +550,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   int value_choose_opt = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
   int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
-  //int value_area = cv::getTrackbarPos("Area", "P4");
+  int value_area = cv::getTrackbarPos("Area", "P4");
 
   /*int gt_max_h = cv::getTrackbarPos("max H", "P4");
   int gt_max_s = cv::getTrackbarPos("max S", "P4");
@@ -534,24 +563,25 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     case 0:
       std::cout << "0: Original in color\n" << std::endl;
+      out_image = in_image;
       break;
 
     case 1:
       std::cout << "1:Green tags detector\n" << std::endl;
-      out_image = green_tags_dt(in_image, value_hough);
+      out_image = green_tags_dt(in_image, value_hough, false);
       //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
 
       break;
 
     case 2:
       std::cout << "2: Blue balls detector\n" << std::endl;
-      out_image = blue_balls_dt(in_image, value_hough);
+      out_image = blue_balls_dt(in_image, false);
 
       break;
 
     case 3:
       std::cout << "3: Get contours from opt1 and opt2\n" << std::endl;
-      //out_image = get_contourns(in_image, value_hough, value_area);
+      out_image = get_contourns(in_image, value_hough, value_area);
 
       break;
   }
