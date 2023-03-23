@@ -88,12 +88,11 @@ cv::Mat blue_balls_dt(cv::Mat in_image, bool is_opt3){
 
   // convert image in hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-  // Detect the object in green
+  // Detect the object in blue
   cv::inRange(img_inHSV, cv::Scalar(94, 100, 23), cv::Scalar(126,255,255), blue_dt);
 
   // Edge detection
   Canny(blue_dt, out_img, 50, 200, 3);
-
 
   std::vector<cv::Vec3f> circles;
   HoughCircles(
@@ -166,8 +165,8 @@ cv::Mat get_contourns(cv::Mat in_image, int value_hough, uint value_area){
   cv::Mat tags_detected = green_tags_dt(in_image, value_hough, true);
   cv::Mat balls_detected = blue_balls_dt(in_image, true);
 
+  // make an and of both binary images (I tried using bitwise_and and it did not work)
   cv::Mat and_images = tags_detected + balls_detected;
-  // using bitwise does not work
 
   // contours 
   std::vector<std::vector<cv::Point>> contours;
@@ -175,107 +174,30 @@ cv::Mat get_contourns(cv::Mat in_image, int value_hough, uint value_area){
   cv::findContours(and_images, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 
   srand(0);
-  //std::cout << contours.size() << std::endl;
-  //while (idx >= 0) {
   for (uint i = 0; i < contours.size(); i++) {
-    //std::cout << i << std::endl;
+    // set random color
     cv::Scalar color(rand() & 255, rand() & 255, rand() & 255);
     if (contours[i].size() > value_area) {
+
+      //calculate centroide of the contour using moments
       cv::Moments moments = cv::moments(contours[i]);
       double cx = moments.m10 / moments.m00;
       double cy = moments.m01 / moments.m00;
       drawContours(cpy_in_img, contours, i, color, cv::LINE_4, 8, hierarchy, 1);
       circle(cpy_in_img, cv::Point(cx, cy), 4, color, -1);
 
-      cv::String text = std::to_string(contours[i].size());
+      //print number of pixels of contour
+      cv::String text = std::to_string(contourArea(contours[i]));
       cv::putText(cpy_in_img, text , cv::Point(cx+5, cy+5),
       cv::FONT_HERSHEY_SIMPLEX, 0.5, color);
     }
-    //drawContours(cpy_in_img, contours, i, color, cv::LINE_4, 8, hierarchy, 1);       // Last value navigates into the hierarchy
-    //idx = hierarchy[idx][0];
   }
-
-  /*for (size_t i = 0; i < contours.size(); i++) {
-    cv::Scalar color(i * 10, i * 20, 0);
-    cv::drawContours(cpy_in_img, contours, i, color, 5);       // Last value navigates into the hierarchy
-    //idx = hierarchy[idx][0];
-  }*/
-  //cv::drawContours(cpy_in_img, contours, -1, cv::Scalar(0, 0, 255), 2);
-
-  /*// Cargar las dos imágenes filtradas de las opciones 1 y 2
-    Mat img1 = imread("img1.png");
-    Mat img2 = imread("img2.png");
-
-    // Fusionar las imágenes
-    Mat fused_img;
-    addWeighted(img1, 0.5, img2, 0.5, 0, fused_img);
-
-    // Aplicar un algoritmo de detección de contornos
-    vector<vector<Point>> contours;
-    vector<Vec4i> hierarchy;
-    findContours(fused_img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
-
-    // Filtrar los contornos por cantidad de puntos
-    int min_contour_points = 100; // valor del slider
-    vector<vector<Point>> filtered_contours;
-    for (const auto& contour : contours) {
-        if (contour.size() > min_contour_points) {
-            filtered_contours.push_back(contour);
-        }
-    }
-
-    // Calcular centroides y dibujar contornos
-    Mat contour_img = Mat::zeros(fused_img.size(), CV_8UC3);
-    int color_index = 0;
-    for (const auto& contour : filtered_contours) {
-        Moments moments = cv::moments(contour);
-        double cx = moments.m10 / moments.m00;
-        double cy = moments.m01 / moments.m00;
-
-        Scalar color = Scalar(color_index % 256, (color_index / 256) % 256, (color_index / 256 / 256) % 256);
-        drawContours(contour_img, vector<vector<Point>>{contour}, 0, color, 2);
-        circle(contour_img, Point(cx, cy), 4, color, -1);
-
-        cout << "Contour #" << color_index << " has " << contour.size() << " points" << endl;
-
-        color_index++;
-    }
-
-    imshow("Contour Image", contour_img);
-    waitKey(0);
-
-    return 0;
- }*/
-
-  // extraer contornos y centros
-  // gaussian blur 
 
   return cpy_in_img;
 }
 
-cv::Mat get_hsv(cv::Mat in_image, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
-
-  cv::Mat img_inHSV, green_dt;
-
-
-  // convert image in hsv 
-  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-  // Detect the object in green
-  cv::inRange(img_inHSV, cv::Scalar(min_h, min_s, min_v), cv::Scalar(max_h,max_s,max_v), green_dt);
-
-  // Edge detection
-  //Canny(green_dt, out_img, 50, 200, 3);
-
-  //std::vector<cv::Vec2f> lines;   // will hold the results of the detection (rho, theta)
-  //HoughLines(out_img, lines, 1, CV_PI / 180, value_hough, 0, 0);   // runs the actual detection
-
-  return green_dt;
-}
-
 cv::Mat image_processing(const cv::Mat in_image) 
 {
-  
-  // Create output image
   cv::Mat out_image;
 
   int max_value_choose_opt = 3;
@@ -288,14 +210,6 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   key = cv::pollKey();
 
-  /*int max_h = 255;
-  int max_s =  255;
-  int max_v =  255;
-  int min_h = 255;
-  int min_s =  255;
-  int min_v =  255;
-  int zero = 0;*/
-
   if(print_once){
     cv::namedWindow("P4");
     cv::createTrackbar("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4", nullptr, max_value_choose_opt, 0);
@@ -305,20 +219,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::createTrackbar("Area", "P4", nullptr, max_value_area, 0);
     cv::setTrackbarPos("Area", "P4", init_value_area);
 
-    /*cv::createTrackbar("max H", "P4", nullptr, max_h, 0);
-    cv::setTrackbarPos("max H", "P4", zero);
-    cv::createTrackbar("max S", "P4", nullptr, max_s, 0);
-    cv::setTrackbarPos("max S", "P4", zero);
-    cv::createTrackbar("max V", "P4", nullptr, max_v, 0);
-    cv::setTrackbarPos("max V", "P4", zero);
-
-    cv::createTrackbar("min H", "P4", nullptr, min_h, 0);
-    cv::setTrackbarPos("min H", "P4", zero);
-    cv::createTrackbar("min S", "P4", nullptr, min_s, 0);
-    cv::setTrackbarPos("min S", "P4", zero);
-    cv::createTrackbar("min V", "P4", nullptr, min_v, 0);
-    cv::setTrackbarPos("min V", "P4", zero);*/
-
     print_once = false;
   }
 
@@ -326,13 +226,6 @@ cv::Mat image_processing(const cv::Mat in_image)
   int value_choose_opt = cv::getTrackbarPos("0:Original; 1.Lines; 2.Balls; 3:Contours", "P4");
   int value_hough = cv::getTrackbarPos("Hough accumulator", "P4");
   uint value_area = cv::getTrackbarPos("Area", "P4");
-
-  /*int gt_max_h = cv::getTrackbarPos("max H", "P4");
-  int gt_max_s = cv::getTrackbarPos("max S", "P4");
-  int gt_max_v = cv::getTrackbarPos("max V", "P4");
-  int gt_min_h = cv::getTrackbarPos("min H", "P4");
-  int gt_min_s = cv::getTrackbarPos("min S", "P4");
-  int gt_min_v = cv::getTrackbarPos("min V", "P4");*/
 
   switch(value_choose_opt) {
 
@@ -344,7 +237,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 1:
       std::cout << "1:Green tags detector\n" << std::endl;
       out_image = green_tags_dt(in_image, value_hough, false);
-      //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
 
       break;
 
@@ -361,9 +253,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       break;
   }
     
-  // Show image in a different window
   cv::imshow("P4",out_image);
-  cv::imshow("P42",in_image);
 
   return out_image;
 }
