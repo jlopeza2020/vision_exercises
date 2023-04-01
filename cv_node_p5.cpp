@@ -218,7 +218,102 @@ void on_mouse(int event, int x, int y, int, void*)
   //}
 }
 
-cv::Mat detect_skeleton(cv::Mat in_image){
+#define THINNING_ZHANGSUEN 1
+#define THINNING_GUOHALL 2
+
+// Applies a thinning iteration to a binary image
+static void thinningIteration(cv::Mat img, int iter, int thinningType)
+{
+  cv::Mat marker = cv::Mat::zeros(img.size(), CV_8UC1);
+
+  if (thinningType == THINNING_ZHANGSUEN) {
+    for (int i = 1; i < img.rows - 1; i++) {
+      for (int j = 1; j < img.cols - 1; j++) {
+        uchar p2 = img.at<uchar>(i - 1, j);
+        uchar p3 = img.at<uchar>(i - 1, j + 1);
+        uchar p4 = img.at<uchar>(i, j + 1);
+        uchar p5 = img.at<uchar>(i + 1, j + 1);
+        uchar p6 = img.at<uchar>(i + 1, j);
+        uchar p7 = img.at<uchar>(i + 1, j - 1);
+        uchar p8 = img.at<uchar>(i, j - 1);
+        uchar p9 = img.at<uchar>(i - 1, j - 1);
+
+        int A = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
+          (p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
+          (p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
+          (p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
+        int B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+        int m1 = iter == 0 ? (p2 * p4 * p6) : (p2 * p4 * p8);
+        int m2 = iter == 0 ? (p4 * p6 * p8) : (p2 * p6 * p8);
+
+        if (A == 1 && (B >= 2 && B <= 6) && m1 == 0 && m2 == 0) {
+          marker.at<uchar>(i, j) = 1;
+        }
+      }
+    }
+  }
+
+  if (thinningType == THINNING_GUOHALL) {
+    for (int i = 1; i < img.rows - 1; i++) {
+      for (int j = 1; j < img.cols - 1; j++) {
+        uchar p2 = img.at<uchar>(i - 1, j);
+        uchar p3 = img.at<uchar>(i - 1, j + 1);
+        uchar p4 = img.at<uchar>(i, j + 1);
+        uchar p5 = img.at<uchar>(i + 1, j + 1);
+        uchar p6 = img.at<uchar>(i + 1, j);
+        uchar p7 = img.at<uchar>(i + 1, j - 1);
+        uchar p8 = img.at<uchar>(i, j - 1);
+        uchar p9 = img.at<uchar>(i - 1, j - 1);
+
+        int C = ((!p2) & (p3 | p4)) + ((!p4) & (p5 | p6)) + ((!p6) & (p7 | p8)) +
+          ((!p8) & (p9 | p2));
+        int N1 = (p9 | p2) + (p3 | p4) + (p5 | p6) + (p7 | p8);
+        int N2 = (p2 | p3) + (p4 | p5) + (p6 | p7) + (p8 | p9);
+        int N = N1 < N2 ? N1 : N2;
+        int m = iter == 0 ? ((p6 | p7 | (!p9)) & p8) : ((p2 | p3 | (!p5)) & p4);
+
+        if ((C == 1) && ((N >= 2) && ((N <= 3)) & (m == 0))) {
+          marker.at<uchar>(i, j) = 1;
+        }
+      }
+    }
+  }
+  img &= ~marker;
+}
+
+// Apply the thinning procedure to a given image
+void thinning(cv::InputArray input, cv::OutputArray output, int thinningType, int iterations)
+{
+  cv::Mat processed = input.getMat().clone();
+  // Enforce the range of the input image to be in between 0 - 255
+  processed /= 255;
+
+  cv::Mat prev = cv::Mat::zeros(processed.size(), CV_8UC1);
+  cv::Mat diff, temp;
+
+  do {
+    thinningIteration(processed, 0, thinningType);
+    thinningIteration(processed, 1, thinningType);
+    absdiff(processed, prev, diff);
+    processed.copyTo(prev);
+
+    //// muestra la animacion en cada iteracion del algoritmo
+    temp = processed * 255;
+    //imshow("Original Skeleton Final", temp);
+    //cv::waitKey(10);
+    //// end animacion
+    //iterations--;
+  } while (iterations > 0 );
+  iterations--;
+  
+
+
+  processed *= 255;
+  output.assign(processed);
+}
+
+
+cv::Mat detect_skeleton(cv::Mat in_image, int iters){
 
 
   cv::Mat out_image, img_inHSV;
@@ -229,11 +324,66 @@ cv::Mat detect_skeleton(cv::Mat in_image){
   // Detect the object in green
   cv::inRange(img_inHSV, cv::Scalar(0, 0, 109), cv::Scalar(255,255,117), out_image);
 
-  for (uint i = 0; i < points.size(); i++) {
-    circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+  //cv::Mat out_clone = out_image.clone();
+  cv::Mat in_clone = in_image.clone();
+
+  //thinning(out_clone, out_clone, 2, iters);
+
+
+  /*for (int i = 0; i < image.cols; i++) {
+    for (int j = 0; j < image.rows; j++) {
+      Scalar intensity = src.at<uchar>(j, i);
+      if (intensity.val[0] == 255) {
+        image.at<Vec3b>(j, i) = Vec3b(0, 0, 255);
+      }
+    }
+  }*/
+
+  // crear una imagen esqueleto vacía
+  cv::Mat skeleton = cv::Mat::zeros(in_image.size(), CV_8UC1);
+
+    // definir el número de iteraciones
+    //int iterations = 10;
+
+    // realizar la operación de esqueletización
+  for (int i = 0; i < iters; i++) {
+    // realizar una apertura de la imagen
+    cv::Mat opened;
+    morphologyEx(out_image, opened, cv::MORPH_OPEN, cv::Mat());
+
+    // restar la imagen abierta de la imagen original
+    cv::Mat temp = out_image - opened;
+
+    // erosionar la imagen original
+    erode(out_image, out_image, cv::Mat());
+
+    // unir la imagen esqueleto y la imagen temp
+    bitwise_or(skeleton, temp, skeleton);
   }
 
-  return out_image;
+    // mostrar la imagen esqueleto superpuesta a la imagen original
+  //cv::Mat overlay;
+  //cvtColor(in_clone, overlay, cv::COLOR_GRAY2BGR);
+  //overlay.setTo(cv::Scalar(0, 255, 0), skeleton);
+  //in_clone.setTo(cv::Scalar(0, 255, 0), skeleton);
+
+  for (int i = 0; i < in_clone.cols; i++) {
+    for (int j = 0; j < in_clone.rows; j++) {
+      cv::Scalar intensity = skeleton.at<uchar>(j, i);
+      if (intensity.val[0] == 255) {
+        in_clone.at<cv::Vec3b>(j, i) = cv::Vec3b(0, 255, 0);
+      }
+    }
+  }
+
+  //imshow("Esqueleto", overlay);
+
+  //THIS WORKS
+  /*for (uint i = 0; i < points.size(); i++) {
+    circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+  }*/
+
+  return in_clone;
 
 
 }
@@ -307,7 +457,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
 
   int value_choose_opt = cv::getTrackbarPos("Option", "P5");
-  //int value_iters = cv::getTrackbarPos("Iterations", "P5");
+  int value_iters = cv::getTrackbarPos("Iterations", "P5");
   //int value_distance = cv::getTrackbarPos("Distance", "P5");
 
   /*int gt_max_h = cv::getTrackbarPos("max H", "P5");
@@ -339,7 +489,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       //  circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
       //}
 
-      out_image = detect_skeleton(in_image);
+      out_image = detect_skeleton(in_image, value_iters);
 
       break;
 
