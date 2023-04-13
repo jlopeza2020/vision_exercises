@@ -48,45 +48,8 @@ cv::Matx33f K; //intrinsic values
 //geometry_mesgs::msg::TransformStamped t;
 geometry_msgs::msg::TransformStamped extrinsic; 
 
-cv::Mat extrinsic_matrix;
-
-//Eigen::Affine3d extrinsicMatrix;
-//Eigen::Isometry3d transformEigen;
-//Eigen::Matrix4d extrinsiceigen;
-//tf2::fromMsg(extrinsic.transform, extrinsicMatrix);
-
-/*auto& trans_matrix = transform_stamped.transform.translation;
-auto& rot_matrix = transform_stamped.transform.rotation;
-double x_var = trans_matrix.x;
-double y_var = trans_matrix.y;
-double z_var = trans_matrix.z;
-
-double qw = rot_matrix.w;
-double qx = rot_matrix.x;
-double qy = rot_matrix.y;
-double qz = rot_matrix.z;*/
-
-// Convertir la TransformStamped a una matriz de transformación
-/*tf2::Matrix3x3 rotation_matrix;
-tf2::fromMsg(extrinsic.transform.rotation, rotation_matrix);
-tf2::Vector3 translation_vector;
-tf2::fromMsg(extrinsic.transform.translation, translation_vector);
-cv::Mat rvec, tvec;
-cv::Rodrigues(cv::Mat(rotation_matrix), rvec);
-tvec = cv::Mat(translation_vector[0], translation_vector[1], translation_vector[2]);
-
-// Combinar la matriz de rotación y la matriz de traslación en una matriz de transformación
-cv::Mat transformation_matrix = cv::Mat::eye(4, 4, CV_64F);
-cv::Mat rotation_matrix_cv;
-cv::Rodrigues(rvec, rotation_matrix_cv);
-rotation_matrix_cv.copyTo(transformation_matrix(cv::Rect(0, 0, 3, 3)));
-tvec.copyTo(transformation_matrix(cv::Rect(3, 0, 1, 3)));
-
-// Invertir la matriz de transformación para obtener la matriz de transformación extrínseca
-cv::Mat extrinsic_matrix = transformation_matrix.inv();*/
-
-
-
+cv::Matx34f extrinsic_matrix;
+cv::Mat res;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -152,7 +115,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
     }
 
     void on_timer(){
-      //transform_stamped = tf_buffer_.lookupTransform( "head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+
       try {
         extrinsic = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
       } catch (tf2::TransformException &ex) {
@@ -160,26 +123,16 @@ class ComputerVisionSubscriber : public rclcpp::Node
         return;
       }
 
-      //tf2::fromMsg(extrinsic.transform, extrinsicMatrix);
-      //tf2::fromMsg(extrinsic.transform, transformEigen);
-      //extrinsiceigen = transformEigen.matrix().inverse();
-
-
     }
 
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
 
-    //tf2_ros::Buffer tf_buffer_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     rclcpp::TimerBase::SharedPtr timer_;
 
-    //tf2::BufferCore tf_buffer_;
-   //tf2_ros::TransformListener tf_listener_;
-
-   
 };
 
 /**
@@ -255,8 +208,7 @@ cv::Mat detect_skeleton(cv::Mat in_image, int iters){
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
-  cv::Mat out_image;
-
+  
   int max_value_choose_opt = 2;
   int init_value_choose_opt = 0;
   int max_value_iters = 100;
@@ -264,6 +216,20 @@ cv::Mat image_processing(const cv::Mat in_image)
   int max_value_distance = 8;
   int init_value_distance = 0;
 
+  cv::Mat out_image;
+  cv::Mat point_req = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0, 0);
+  //std::cout << point_req<< std::endl;
+  extrinsic_matrix = cv::Matx34f(   1, 0, 0, extrinsic.transform.translation.x,
+                                    0, 1, 0, extrinsic.transform.translation.y,
+                                    0, 0, 1, extrinsic.transform.translation.z);
+
+                
+                                  
+  res = K*extrinsic_matrix*point_req;
+
+  cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0)); // define center of the circle
+
+  
   key = cv::pollKey();
 
   if(print_once){
@@ -274,6 +240,18 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::setTrackbarPos("Iterations", "P5", init_value_iters);
     cv::createTrackbar("Distance", "P5", nullptr, max_value_distance, 0);
     cv::setTrackbarPos("Distance", "P5", init_value_distance);
+
+    cv::Mat point_req = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0, 1);
+    //std::cout << point_req<< std::endl;
+    /*extrinsic_matrix = cv::Matx34f( 1, 0, 0, extrinsic.transform.translation.x,
+                                    0, 1, 0, extrinsic.transform.translation.y,
+                                    0, 0, 1, extrinsic.transform.translation.z);
+
+                
+                                  
+    res = K*extrinsic_matrix*point_req;
+
+    std::cout << res.at<float>(0, 0) << res.at<float>(1, 0) << std::endl;*/
 
     print_once = false;
   }
@@ -303,60 +281,50 @@ cv::Mat image_processing(const cv::Mat in_image)
       for (uint i = 0; i < points.size(); i++) {
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
       }
+
+
+      //cv::circle(out_image, center, 200, cv::Scalar(255, 192, 203), 50); // draw the circle on the image
+
     
       //std::cout << K << std::endl;
 
-      extrinsic_matrix = (cv::Mat_<double>(3,4) << 
+      //cv::Mat point_req = (cv::Mat_<float>(1,4) << 3.0, 1.4, 0, 0);
+
+
+      // need one time
+      /*extrinsic_matrix = (cv::Mat_<double>(3,4) << 
                                     1, 0, 0, extrinsic.transform.translation.x,
                                     0, 1, 0, extrinsic.transform.translation.y,
-                                    0, 0, 1, extrinsic.transform.translation.z);
+                                    0, 0, 1, extrinsic.transform.translation.z);*/
 
-      std::cout << extrinsic.transform.translation.x << std::endl;
-      std::cout << extrinsic.transform.translation.y << std::endl;
-      std::cout << extrinsic.transform.translation.z << std::endl;
+      //std::cout << extrinsic_matrix << std::endl;
 
-
-      std::cout << extrinsic_matrix << std::endl;
-      //geometry_msgs::msg::Quaternion rotation = extrinsic.transform.rotation;
-
-      //tf2::Quaternion tf_quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
-      //tf2::Matrix3x3 tf_rotation_matrix;
-      //tf_rotation_matrix.setRotation(tf_quaternion);
-
-
-      //auto& rot_matrix = transform_stamped.transform.rotation;
-      //auto& trans_matrix = transform_stamped.transform.translation;
-
-      // Acceder a los componentes de la matriz de rotación y la matriz de traslación
-      //double x_var = trans_matrix.x;
-
-      /*std::cout << x_var << std::endl;
-      std::cout << y_var << std::endl;
-      std::cout << z_var << std::endl;*/
-      /*double y = trans_matrix.y;
-      double z = trans_matrix.z;
-
-
-
-      double qw = rot_matrix.w;
-      double qx = rot_matrix.x;
-      double qy = rot_matrix.y;
-      double qz = rot_matrix.z;*/
-
-      /*std::cout << qw << std::endl;
-      std::cout << qx << std::endl;
-      std::cout << qy << std::endl;*/
-
+      //cv::Mat point_req = (cv::Mat_<float>(1,4) << 3.0, 1.4, 0, 0);
+      //cv::Mat res = K*extrinsic_matrix*point_req;
+      //res = K*extrinsic_matrix*point_req;
       
+      std::cout << res << std::endl;
+      //std::cout << res.at<float>(0, 0) << res.at<float>(1, 0) << std::endl;
+      std::cout << out_image.size() << std::endl;
+      //std::cout << res.at<float>(0, 0) << std::endl;
+      //std::cout << res.at<float>(1, 0) << std::endl;
       break;
 
     case 2:
       std::cout << "2: Deep image\n" << std::endl;
       out_image = in_image;
+      ///cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0));
+      cv::Point center(320, 240);
+
+      cv::circle(out_image,center, 2000, cv::Scalar(255, 192, 203), 50); // draw the circle on the image
+
       //out_image = deep_image(in_image, false);
 
       break;
   }
+  
+  // from 3D to 2D
+  //res = K*extrinsic_matrix*point_req;
     
   cv::imshow("P5",out_image);
   //cv::imshow("P52",in_image);
