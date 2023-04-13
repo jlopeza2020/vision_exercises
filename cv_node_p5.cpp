@@ -45,11 +45,11 @@ int key;
 bool print_once = true;
 cv::Matx33f K; //intrinsic values 
 
-//geometry_mesgs::msg::TransformStamped t;
 geometry_msgs::msg::TransformStamped extrinsic; 
 
 cv::Matx34f extrinsic_matrix;
 cv::Mat res;
+cv::Mat res2;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -217,17 +217,20 @@ cv::Mat image_processing(const cv::Mat in_image)
   int init_value_distance = 0;
 
   cv::Mat out_image;
-  cv::Mat point_req = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0, 0);
-  //std::cout << point_req<< std::endl;
+  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 1.4, 3.0, 0.0, 1.0);
+
+  cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 2.8, 3.0, 0.0, 1.0);
+
   extrinsic_matrix = cv::Matx34f(   1, 0, 0, extrinsic.transform.translation.x,
                                     0, 1, 0, extrinsic.transform.translation.y,
                                     0, 0, 1, extrinsic.transform.translation.z);
 
                 
                                   
-  res = K*extrinsic_matrix*point_req;
+  res = K*extrinsic_matrix*point_req1;
+  res2 = K*extrinsic_matrix*point_req2;
 
-  cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0)); // define center of the circle
+  //cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0)); // define center of the circle
 
   
   key = cv::pollKey();
@@ -242,16 +245,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::setTrackbarPos("Distance", "P5", init_value_distance);
 
     cv::Mat point_req = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0, 1);
-    //std::cout << point_req<< std::endl;
-    /*extrinsic_matrix = cv::Matx34f( 1, 0, 0, extrinsic.transform.translation.x,
-                                    0, 1, 0, extrinsic.transform.translation.y,
-                                    0, 0, 1, extrinsic.transform.translation.z);
-
-                
-                                  
-    res = K*extrinsic_matrix*point_req;
-
-    std::cout << res.at<float>(0, 0) << res.at<float>(1, 0) << std::endl;*/
 
     print_once = false;
   }
@@ -282,29 +275,8 @@ cv::Mat image_processing(const cv::Mat in_image)
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
       }
 
-
-      //cv::circle(out_image, center, 200, cv::Scalar(255, 192, 203), 50); // draw the circle on the image
-
-    
-      //std::cout << K << std::endl;
-
-      //cv::Mat point_req = (cv::Mat_<float>(1,4) << 3.0, 1.4, 0, 0);
-
-
-      // need one time
-      /*extrinsic_matrix = (cv::Mat_<double>(3,4) << 
-                                    1, 0, 0, extrinsic.transform.translation.x,
-                                    0, 1, 0, extrinsic.transform.translation.y,
-                                    0, 0, 1, extrinsic.transform.translation.z);*/
-
-      //std::cout << extrinsic_matrix << std::endl;
-
-      //cv::Mat point_req = (cv::Mat_<float>(1,4) << 3.0, 1.4, 0, 0);
-      //cv::Mat res = K*extrinsic_matrix*point_req;
-      //res = K*extrinsic_matrix*point_req;
-      
       std::cout << res << std::endl;
-      //std::cout << res.at<float>(0, 0) << res.at<float>(1, 0) << std::endl;
+      std::cout << res2 << std::endl;
       std::cout << out_image.size() << std::endl;
       //std::cout << res.at<float>(0, 0) << std::endl;
       //std::cout << res.at<float>(1, 0) << std::endl;
@@ -314,20 +286,19 @@ cv::Mat image_processing(const cv::Mat in_image)
       std::cout << "2: Deep image\n" << std::endl;
       out_image = in_image;
       ///cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0));
-      cv::Point center(320, 240);
+      cv::Point center(res.at<float>(0, 0)*abs(res.at<float>(2, 0)),res.at<float>(1, 0)*abs(res.at<float>(2, 0)) );
+      cv::circle(out_image,center, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
 
-      cv::circle(out_image,center, 2000, cv::Scalar(255, 192, 203), 50); // draw the circle on the image
+      cv::Point center2(res2.at<float>(0, 0)*abs(res2.at<float>(2, 0)),res2.at<float>(1, 0)*abs(res2.at<float>(2, 0)) );
+      cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
 
       //out_image = deep_image(in_image, false);
 
       break;
   }
   
-  // from 3D to 2D
-  //res = K*extrinsic_matrix*point_req;
     
   cv::imshow("P5",out_image);
-  //cv::imshow("P52",in_image);
 
   return out_image;
 }
