@@ -67,7 +67,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
       subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
       "/head_front_camera/rgb/camera_info", qos, std::bind(&ComputerVisionSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
-      // Inicializar el transform listener
+      // transform listener inialization
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -99,14 +99,12 @@ class ComputerVisionSubscriber : public rclcpp::Node
     }
 
     void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
-    {     
-      // Convert ROS Image to CV Image
-
-      // Crear modelo de cámara
+    {           
+      // create camera model
       image_geometry::PinholeCameraModel camera_model = image_geometry::PinholeCameraModel();
       camera_model.fromCameraInfo(msg);
 
-      // Obtener matriz de parámetros intrínsecos
+      //Obtain intrinsic matrix
       K = camera_model.intrinsicMatrix();
 
     }
@@ -147,57 +145,44 @@ void on_mouse(int event, int x, int y, int, void*)
   }
 }
 
-cv::Mat detect_skeleton(cv::Mat in_image, int iters){
+cv::Mat detect_skeleton(cv::Mat in_image, int iters, int distance){
 
 
   cv::Mat out_image, img_inHSV;
 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-  // Detect the object in green
+  // Detect lines
   cv::inRange(img_inHSV, cv::Scalar(0, 0, 109), cv::Scalar(255,255,117), out_image);
-
-  // print skeleton from distance
   
-
-  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
-  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << img_inHSV.cols, img_inHSV.rows, 0.0, 1.0);
-
-  cv::Mat res = K*extrinsic_matrix*point_req1;
-  //cv::Mat res2 = K*extrinsic_matrix*point_req2;
-
+  // Create rectangle to use skeleton taking care of variable distance
+  cv::Mat point_rec = (cv::Mat_<float>(4,1) << distance, -1.4, 0.0, 1.0);
+  cv::Mat res = K*extrinsic_matrix*point_rec;
   cv::Point center(0,res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
-  //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
-
-  //cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
-  //cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
-
   cv::Point other_center(img_inHSV.cols,img_inHSV.rows);
   cv::rectangle(out_image,center,other_center,cv::Scalar(0, 0, 0),-1);
-  cv::imshow("P52",img_inHSV);
-
-
 
   cv::Mat in_clone = in_image.clone();
 
-  // crear una imagen esqueleto vacía
+  //create an empty image
   cv::Mat skeleton = cv::Mat::zeros(in_image.size(), CV_8UC1);
 
-    // realizar la operación de esqueletización
+  //operate for obtaining skeleton
   for (int i = 0; i < iters; i++) {
-    // realizar una apertura de la imagen
+    //open image
     cv::Mat opened;
     morphologyEx(out_image, opened, cv::MORPH_OPEN, cv::Mat());
 
-    // restar la imagen abierta de la imagen original
+    //substrct origin and open images 
     cv::Mat temp = out_image - opened;
 
-    // erosionar la imagen original
+    //erode origin image
     erode(out_image, out_image, cv::Mat());
 
-    // unir la imagen esqueleto y la imagen temp
+    //link skeleton image and temp 
     bitwise_or(skeleton, temp, skeleton);
   }
 
+  //print green lines
   for (int i = 0; i < in_clone.cols; i++) {
     for (int j = 0; j < in_clone.rows; j++) {
       cv::Scalar intensity = skeleton.at<uchar>(j, i);
@@ -284,11 +269,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 1:
       std::cout << "1:Detect skeleton\n" << std::endl;
 
-      out_image = detect_skeleton(in_image, value_iters);
+      out_image = detect_skeleton(in_image, value_iters, value_distance);
 
+      lines_from_3D_to_2D(out_image, value_distance);
 
       for (uint i = 0; i < points.size(); i++) {
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+        // add text 
       }
 
       break;
@@ -296,9 +283,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 2:
       std::cout << "2: Deep image\n" << std::endl;
       out_image = in_image;
-  
+
       //out_image = deep_image(in_image, false);
-      lines_from_3D_to_2D(out_image, value_distance);
+
+      for (uint i = 0; i < points.size(); i++) {
+        circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+        // add text
+      }
 
       break;
   }
