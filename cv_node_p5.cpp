@@ -48,8 +48,6 @@ cv::Matx33f K; //intrinsic values
 geometry_msgs::msg::TransformStamped extrinsic; 
 
 cv::Matx34f extrinsic_matrix;
-//cv::Mat res;
-//cv::Mat res2;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -117,6 +115,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
     void on_timer(){
 
       try {
+        // goes from base_footprint to optical frame 
         extrinsic = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
       } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
@@ -140,7 +139,6 @@ class ComputerVisionSubscriber : public rclcpp::Node
 **/
 
 // create mouse callback
-
 std::vector<cv::Point> points;
 
 void on_mouse(int event, int x, int y, int, void*)
@@ -148,16 +146,6 @@ void on_mouse(int event, int x, int y, int, void*)
   if (event == cv::EVENT_LBUTTONDOWN){
     points.push_back(cv::Point(x, y));
   }
-      //std::cout << "Left button" << std::endl;
-     //points.push_back(Point(x, y));
-      //break;
-    //case cv::EVENT_RBUTTONDOWN:
-    //  std::cout << "Right button" << std::endl;
-    //  break;
-    //default:
-    //  std::cout << "No button" << std::endl;
-    //  break;
-    //}
 }
 
 cv::Mat detect_skeleton(cv::Mat in_image, int iters){
@@ -169,8 +157,28 @@ cv::Mat detect_skeleton(cv::Mat in_image, int iters){
   // Detect the object in green
   cv::inRange(img_inHSV, cv::Scalar(0, 0, 109), cv::Scalar(255,255,117), out_image);
 
-  cv::Mat in_clone = in_image.clone();
+  // print skeleton from distance
+  
 
+  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
+  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << img_inHSV.cols, img_inHSV.rows, 0.0, 1.0);
+
+  cv::Mat res = K*extrinsic_matrix*point_req1;
+  //cv::Mat res2 = K*extrinsic_matrix*point_req2;
+
+  cv::Point center(0,res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+  //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+  //cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+  //cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+  cv::Point other_center(img_inHSV.cols,img_inHSV.rows);
+  cv::rectangle(out_image,center,other_center,cv::Scalar(0, 0, 0),-1);
+  cv::imshow("P52",img_inHSV);
+
+
+
+  cv::Mat in_clone = in_image.clone();
 
   // crear una imagen esqueleto vacía
   cv::Mat skeleton = cv::Mat::zeros(in_image.size(), CV_8UC1);
@@ -201,51 +209,28 @@ cv::Mat detect_skeleton(cv::Mat in_image, int iters){
   }
 
   return in_clone;
-
-
 }
 
-void lines_from_3D_to_2D(cv::Mat out_image){
+void lines_from_3D_to_2D(cv::Mat out_image, int distance){
 
   
-  for(int i = 3; i <= 8; i++){
+  for(int i = 0; i <= distance; i++){
 
     cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
     cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
 
-
-  
     cv::Mat res = K*extrinsic_matrix*point_req1;
     cv::Mat res2 = K*extrinsic_matrix*point_req2;
 
     cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
     cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
 
-
     cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
     cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
 
     cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
 
-
   }
-  /*cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0.0, 1.0);
-  cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
-
-
-  
-  cv::Mat res = K*extrinsic_matrix*point_req1;
-  cv::Mat res2 = K*extrinsic_matrix*point_req2;
-
-  cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
-  cv::circle(out_image,center, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
-
-
-  cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
-  cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
-
-  cv::line(out_image, center, center2, cv::Scalar(0, 255, 255), 2);*/
-
 }
 
 
@@ -260,26 +245,11 @@ cv::Mat image_processing(const cv::Mat in_image)
   int init_value_distance = 0;
 
   cv::Mat out_image;
-  //cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0.0, 1.0);
-
-  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
-
   // get extrinsic matrix 
   extrinsic_matrix = cv::Matx34f(   0, 1, 0, extrinsic.transform.translation.x,
                                     0, 0, 1, extrinsic.transform.translation.y,
                                     1, 0, 0, extrinsic.transform.translation.z);
 
-
-                                   
-  //res = K*extrinsic_matrix*point_req1;
-  //res2 = K*extrinsic_matrix*point_req2;
-
-  //std::cout << K << std::endl;
-  //std::cout << extrinsic_matrix << std::endl;
-
-  //cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0)); // define center of the circle
-
-  
   key = cv::pollKey();
 
   if(print_once){
@@ -291,15 +261,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::createTrackbar("Distance", "P5", nullptr, max_value_distance, 0);
     cv::setTrackbarPos("Distance", "P5", init_value_distance);
 
-    //cv::Mat point_req = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0, 1);
-
     print_once = false;
   }
 
 
   int value_choose_opt = cv::getTrackbarPos("Option", "P5");
   int value_iters = cv::getTrackbarPos("Iterations", "P5");
-  //int value_distance = cv::getTrackbarPos("Distance", "P5");
+  int value_distance = cv::getTrackbarPos("Distance", "P5");
 
   cv::setMouseCallback( "P5", on_mouse, 0 );
 
@@ -322,37 +290,18 @@ cv::Mat image_processing(const cv::Mat in_image)
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
       }
 
-      //std::cout << res << std::endl;
-      //std::cout << res2 << std::endl;
-      //std::cout << out_image.size() << std::endl;
-
-      //std::cout << res.at<float>(0, 0) << std::endl;
-      //std::cout << res.at<float>(1, 0) << std::endl;
       break;
 
     case 2:
       std::cout << "2: Deep image\n" << std::endl;
       out_image = in_image;
-      ///cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0));
-      /*cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
-      cv::circle(out_image,center, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
-
-
-      cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
-      cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
-
-      cv::line(out_image, center, center2, cv::Scalar(0, 255, 255), 2);*/
-
-
-      //cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
-
+  
       //out_image = deep_image(in_image, false);
-      lines_from_3D_to_2D(out_image);
+      lines_from_3D_to_2D(out_image, value_distance);
 
       break;
   }
   
-    
   cv::imshow("P5",out_image);
 
   return out_image;
