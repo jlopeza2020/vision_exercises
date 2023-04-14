@@ -36,8 +36,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include <tf2/LinearMath/Transform.h>
-#include <Eigen/Dense>
+//#include <tf2/LinearMath/Transform.h>
+//#include <Eigen/Dense>
 
 using namespace std::chrono_literals;
 
@@ -46,8 +46,8 @@ bool print_once = true;
 cv::Matx33f K; //intrinsic values 
 
 geometry_msgs::msg::TransformStamped extrinsic; 
-
 cv::Matx34f extrinsic_matrix;
+cv::Mat depth_image;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -67,6 +67,9 @@ class ComputerVisionSubscriber : public rclcpp::Node
       subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
       "/head_front_camera/rgb/camera_info", qos, std::bind(&ComputerVisionSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
+      subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
+      "/head_front_camera/depth_registered/image_raw", qos, std::bind(&ComputerVisionSubscriber::topic_callback_depth, this, std::placeholders::_1));
+
       // transform listener inialization
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -109,6 +112,50 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     }
 
+    void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
+    {     
+      // Convert ROS Image to CV Image
+      //cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      //image_depth =  cv_ptr->image;
+
+      //      cv::Mat depth_image = cv_bridge::toCvCopy(msg, msg->encoding)->image;
+
+      cv_bridge::CvImagePtr cv_ptr;
+      //try
+      //{
+      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      //}
+      //catch (cv_bridge::Exception &e)
+      //{
+        //RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
+        //return;
+      //}
+
+      depth_image = cv_ptr->image;
+
+      for(int i = 0; i < depth_image.rows; i++){
+
+        for(int j = 0; j < depth_image.cols; j++){
+
+          if(std::isinf(depth_image.at<float>(i,j))){
+
+            depth_image.at<float>(i,j) = 0;
+          }
+        }
+      }
+      
+      cv::normalize(depth_image, depth_image, 0, 1, cv::NORM_MINMAX, CV_32FC1);
+
+      //cv::imshow("Depth Image", depth_image);
+
+      // Mostrar la imagen de profundidad realzada
+      ///cv::imshow("Depth Image", depth_image);
+      // Mostrar la imagen de profundidad realzada.
+      //cv::imshow("Depth Image", depth_image);
+      //cv::waitKey(1);
+
+    }
+
     void on_timer(){
 
       try {
@@ -123,6 +170,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -135,15 +183,17 @@ class ComputerVisionSubscriber : public rclcpp::Node
   TO-DO COMPLETE THIS PART 
 **/
 
+
+
 // create mouse callback
 std::vector<cv::Point> points;
-
 void on_mouse(int event, int x, int y, int, void*)
 {
   if (event == cv::EVENT_LBUTTONDOWN){
     points.push_back(cv::Point(x, y));
   }
 }
+
 
 cv::Mat detect_skeleton(cv::Mat in_image, int iters, int distance){
 
@@ -219,6 +269,7 @@ void lines_from_3D_to_2D(cv::Mat out_image, int distance){
   }
 }
 
+//is inf dep a0
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -240,6 +291,7 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   if(print_once){
     cv::namedWindow("P5");
+    //cv::namedWindow("Depth Image");
     cv::createTrackbar("Option", "P5", nullptr, max_value_choose_opt, 0);
     cv::setTrackbarPos("Option", "P5", init_value_choose_opt);
     cv::createTrackbar("Iterations", "P5", nullptr, max_value_iters, 0);
@@ -282,9 +334,26 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     case 2:
       std::cout << "2: Deep image\n" << std::endl;
-      out_image = in_image;
+      out_image = depth_image;
+
+      //std::cout << depth_image << std::endl;
+
+
+      //cv::imshow("Depth Image", depth_image);
+
+
+      //out_image = image_enhaced(image_depth);
+      
+
+      //cv::normalize(image_depth, out_image, 0, 1, cv::NORM_MINMAX, CV_8UC1);
+      //out_image=image_depth;
+
+      //cv::imshow("P52",depth_image);
 
       //out_image = deep_image(in_image, false);
+    
+
+
 
       for (uint i = 0; i < points.size(); i++) {
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
