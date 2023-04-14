@@ -67,7 +67,6 @@ class ComputerVisionSubscriber : public rclcpp::Node
       subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
       "/head_front_camera/rgb/camera_info", qos, std::bind(&ComputerVisionSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
-    
       // Inicializar el transform listener
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -229,6 +228,8 @@ void lines_from_3D_to_2D(cv::Mat out_image, int distance){
     cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
 
     cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
+
+    cv::putText(out_image, std::to_string(i), center, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
 
   }
 }
