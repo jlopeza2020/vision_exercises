@@ -48,8 +48,8 @@ cv::Matx33f K; //intrinsic values
 geometry_msgs::msg::TransformStamped extrinsic; 
 
 cv::Matx34f extrinsic_matrix;
-cv::Mat res;
-cv::Mat res2;
+//cv::Mat res;
+//cv::Mat res2;
 
 cv::Mat image_processing(const cv::Mat in_image);
 
@@ -205,6 +205,49 @@ cv::Mat detect_skeleton(cv::Mat in_image, int iters){
 
 }
 
+void lines_from_3D_to_2D(cv::Mat out_image){
+
+  
+  for(int i = 3; i <= 8; i++){
+
+    cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
+    cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+
+
+  
+    cv::Mat res = K*extrinsic_matrix*point_req1;
+    cv::Mat res2 = K*extrinsic_matrix*point_req2;
+
+    cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+    cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+
+    cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+    cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+    cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
+
+
+  }
+  /*cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0.0, 1.0);
+  cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
+
+
+  
+  cv::Mat res = K*extrinsic_matrix*point_req1;
+  cv::Mat res2 = K*extrinsic_matrix*point_req2;
+
+  cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+  cv::circle(out_image,center, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
+
+
+  cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+  cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
+
+  cv::line(out_image, center, center2, cv::Scalar(0, 255, 255), 2);*/
+
+}
+
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -217,21 +260,22 @@ cv::Mat image_processing(const cv::Mat in_image)
   int init_value_distance = 0;
 
   cv::Mat out_image;
-  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0.0, 1.0);
+  //cv::Mat point_req1 = (cv::Mat_<float>(4,1) << 3.0, 1.4, 0.0, 1.0);
 
-  cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
+  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << 3.0, -1.4, 0.0, 1.0);
 
+  // get extrinsic matrix 
   extrinsic_matrix = cv::Matx34f(   0, 1, 0, extrinsic.transform.translation.x,
                                     0, 0, 1, extrinsic.transform.translation.y,
                                     1, 0, 0, extrinsic.transform.translation.z);
 
-                
-                                  
-  res = K*extrinsic_matrix*point_req1;
-  res2 = K*extrinsic_matrix*point_req2;
 
-  std::cout << K << std::endl;
-  std::cout << extrinsic_matrix << std::endl;
+                                   
+  //res = K*extrinsic_matrix*point_req1;
+  //res2 = K*extrinsic_matrix*point_req2;
+
+  //std::cout << K << std::endl;
+  //std::cout << extrinsic_matrix << std::endl;
 
   //cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0)); // define center of the circle
 
@@ -278,9 +322,9 @@ cv::Mat image_processing(const cv::Mat in_image)
         circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
       }
 
-      std::cout << res << std::endl;
+      //std::cout << res << std::endl;
       //std::cout << res2 << std::endl;
-      std::cout << out_image.size() << std::endl;
+      //std::cout << out_image.size() << std::endl;
 
       //std::cout << res.at<float>(0, 0) << std::endl;
       //std::cout << res.at<float>(1, 0) << std::endl;
@@ -290,19 +334,20 @@ cv::Mat image_processing(const cv::Mat in_image)
       std::cout << "2: Deep image\n" << std::endl;
       out_image = in_image;
       ///cv::Point center(res.at<float>(0, 0), res.at<float>(1, 0));
-      cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+      /*cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
       cv::circle(out_image,center, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
 
 
       cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
       cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
 
-      cv::line(out_image, center, center2, cv::Scalar(0, 255, 255), 2);
+      cv::line(out_image, center, center2, cv::Scalar(0, 255, 255), 2);*/
 
 
       //cv::circle(out_image,center2, 3, cv::Scalar(0, 255, 255), -1); // draw the circle on the image
 
       //out_image = deep_image(in_image, false);
+      lines_from_3D_to_2D(out_image);
 
       break;
   }
