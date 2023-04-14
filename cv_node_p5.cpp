@@ -36,8 +36,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-//#include <tf2/LinearMath/Transform.h>
-//#include <Eigen/Dense>
 
 using namespace std::chrono_literals;
 
@@ -45,8 +43,10 @@ int key;
 bool print_once = true;
 cv::Matx33f K; //intrinsic values 
 
-geometry_msgs::msg::TransformStamped extrinsic; 
-cv::Matx34f extrinsic_matrix;
+geometry_msgs::msg::TransformStamped extrinsicbf2of; 
+geometry_msgs::msg::TransformStamped extrinsicof2bf; 
+cv::Matx34f extrinsic_matrixbf2of;
+cv::Matx34f extrinsic_matrixof2bf;
 cv::Mat depth_image;
 
 cv::Mat image_processing(const cv::Mat in_image);
@@ -74,8 +74,12 @@ class ComputerVisionSubscriber : public rclcpp::Node
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+      tf_buffer2_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener2_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer2_);
+
       // Call on_timer function every 500ms
-      timer_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer, this));
+      timerop1_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer, this));
+      timerop2_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer2, this));
 
 
       publisher_ = this->create_publisher<sensor_msgs::msg::Image>("cv_image", qos);
@@ -93,7 +97,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
       // Convert OpenCV Image to ROS Image
       cv_bridge::CvImage img_bridge = cv_bridge::CvImage(msg->header, sensor_msgs::image_encodings::BGR8, cv_image);
-      sensor_msgs::msg::Image out_image; // >> message to be sent
+      sensor_msgs::msg::Image out_image; // message to be sent
       img_bridge.toImageMsg(out_image); // from cv_bridge to sensor_msgs::Image
 
       // Publish the data
@@ -114,53 +118,50 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
     {     
-      // Convert ROS Image to CV Image
-      //cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
-      //image_depth =  cv_ptr->image;
-
-      //      cv::Mat depth_image = cv_bridge::toCvCopy(msg, msg->encoding)->image;
-
+    
       cv_bridge::CvImagePtr cv_ptr;
-      //try
-      //{
-      cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
-      //}
-      //catch (cv_bridge::Exception &e)
-      //{
-        //RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
-        //return;
-      //}
+      try
+      {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      }
+      catch (cv_bridge::Exception &e)
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
+        return;
+      }
 
       depth_image = cv_ptr->image;
 
       for(int i = 0; i < depth_image.rows; i++){
-
         for(int j = 0; j < depth_image.cols; j++){
 
-          if(std::isinf(depth_image.at<float>(i,j))){
+          if(std::isinf(depth_image.at<float>(i,j)) || std::isnan(depth_image.at<float>(i,j))){
 
             depth_image.at<float>(i,j) = 0;
           }
         }
       }
-      
+
       cv::normalize(depth_image, depth_image, 0, 1, cv::NORM_MINMAX, CV_32FC1);
-
-      //cv::imshow("Depth Image", depth_image);
-
-      // Mostrar la imagen de profundidad realzada
-      ///cv::imshow("Depth Image", depth_image);
-      // Mostrar la imagen de profundidad realzada.
-      //cv::imshow("Depth Image", depth_image);
-      //cv::waitKey(1);
-
     }
 
     void on_timer(){
 
       try {
         // goes from base_footprint to optical frame 
-        extrinsic = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+      } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        return;
+      }
+
+    }
+
+    void on_timer2(){
+
+      try {
+        // goes from base_footprint to optical frame 
+        extrinsicof2bf = tf_buffer2_->lookupTransform("base_footprint","head_front_camera_rgb_optical_frame", tf2::TimePointZero);
       } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
         return;
@@ -175,15 +176,16 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-    rclcpp::TimerBase::SharedPtr timer_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer2_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener2_;
+    rclcpp::TimerBase::SharedPtr timerop1_;
+    rclcpp::TimerBase::SharedPtr timerop2_;
 
 };
 
 /**
   TO-DO COMPLETE THIS PART 
 **/
-
-
 
 // create mouse callback
 std::vector<cv::Point> points;
@@ -206,7 +208,7 @@ cv::Mat detect_skeleton(cv::Mat in_image, int iters, int distance){
   
   // Create rectangle to use skeleton taking care of variable distance
   cv::Mat point_rec = (cv::Mat_<float>(4,1) << distance, -1.4, 0.0, 1.0);
-  cv::Mat res = K*extrinsic_matrix*point_rec;
+  cv::Mat res = K*extrinsic_matrixbf2of*point_rec;
   cv::Point center(0,res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
   cv::Point other_center(img_inHSV.cols,img_inHSV.rows);
   cv::rectangle(out_image,center,other_center,cv::Scalar(0, 0, 0),-1);
@@ -253,23 +255,69 @@ void lines_from_3D_to_2D(cv::Mat out_image, int distance){
     cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
     cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
 
-    cv::Mat res = K*extrinsic_matrix*point_req1;
-    cv::Mat res2 = K*extrinsic_matrix*point_req2;
+    cv::Mat res = K*extrinsic_matrixbf2of*point_req1;
+    cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
 
-    cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+    cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)), res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
     cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
 
-    cv::Point center2(res2.at<float>(0, 0)/res2.at<float>(2, 0),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+    cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
     cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
 
     cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
 
-    cv::putText(out_image, std::to_string(i), center, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
+    cv::putText(out_image, std::to_string(i), center, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
 
   }
 }
 
-//is inf dep a0
+void point_from_2D_to_3D(cv::Mat out_image, cv::Point clicked_point){
+
+  
+  float z_val = depth_image.at<float>(clicked_point);
+  
+  // convertir de 3d a 2d para mostrar pantalla 
+  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << clicked_point.x, clicked_point.y, z_val, 1.0);
+
+  cv::Mat res = K*extrinsic_matrixof2bf*point_req1;
+
+  //std::cout << res.at<float>(0, 0)/abs(res.at<float>(2, 0)) << std::endl;
+  //std::cout << res.at<float>(1, 0)/abs(res.at<float>(2, 0)) << std::endl;
+
+  float x = res.at<float>(0, 0)/abs(res.at<float>(2, 0));
+  float y = res.at<float>(1, 0)/abs(res.at<float>(2, 0));
+
+  //cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+  //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+  
+  //cv::putText(out_image, std::to_string(i), center, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
+
+  //}
+
+  //conversion de 2D a 3D
+
+  float x_val = ((x - res.at<float>(2, 0))*z_val) / res.at<float>(0, 0);
+
+  float y_val = ((y - res.at<float>(2, 1))*z_val) / res.at<float>(1, 1);
+
+  //float z_val = depth_image.at<float>(clicked_point);
+
+  //std::cout << x_val << std::endl;
+  //std::cout << y_val << std::endl;
+  //std::cout << z_val << std::endl;
+
+  circle(out_image, clicked_point, 3, cv::Scalar(255, 255, 255), -1);
+  //float depth_value = depth_image.at<float>(clicked_point);
+
+  std::string value_str = cv::format("[%.2f, %.2f, %.2f]",x_val, y_val, z_val);
+        //std::cout << points[i].x << std::endl;
+        //std::cout << points[i].y << std::endl;
+        //point_from_2D_to_3D(points[i].x, points[i].y, depth_value);
+  cv::putText(out_image, value_str, clicked_point, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+
+
+}
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -283,9 +331,13 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   cv::Mat out_image;
   // get extrinsic matrix 
-  extrinsic_matrix = cv::Matx34f(   0, 1, 0, extrinsic.transform.translation.x,
-                                    0, 0, 1, extrinsic.transform.translation.y,
-                                    1, 0, 0, extrinsic.transform.translation.z);
+  extrinsic_matrixbf2of = cv::Matx34f( 0, 1, 0, extrinsicbf2of.transform.translation.x,
+                                  0, 0, 1, extrinsicbf2of.transform.translation.y,
+                                  1, 0, 0, extrinsicbf2of.transform.translation.z);
+
+  extrinsic_matrixof2bf = cv::Matx34f( 0, 0, 1, extrinsicof2bf.transform.translation.x,
+                                       1, 0, 0, extrinsicof2bf.transform.translation.y,
+                                      0, 1, 0, extrinsicof2bf.transform.translation.z);
 
   key = cv::pollKey();
 
@@ -314,7 +366,7 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 0:
       std::cout << "0: Original in color\n" << std::endl;
       out_image = in_image;
-      //reset image in case there are point
+      //reset image in case there are points cliked
       points.clear(); 
       break;
 
@@ -326,7 +378,14 @@ cv::Mat image_processing(const cv::Mat in_image)
       lines_from_3D_to_2D(out_image, value_distance);
 
       for (uint i = 0; i < points.size(); i++) {
-        circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+        //circle(out_image, points[i], 3, cv::Scalar(255, 255, 255), -1);
+        //float depth_value = depth_image.at<float>(points[i])*10;
+        //std::string value_str = cv::format("%.2f",depth_value);
+        //std::cout << points[i].x << std::endl;
+        //std::cout << points[i].y << std::endl;
+        point_from_2D_to_3D(out_image, points[i]);
+        //cv::putText(out_image, value_str, points[i], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+
         // add text 
       }
 
@@ -336,27 +395,11 @@ cv::Mat image_processing(const cv::Mat in_image)
       std::cout << "2: Deep image\n" << std::endl;
       out_image = depth_image;
 
-      //std::cout << depth_image << std::endl;
-
-
-      //cv::imshow("Depth Image", depth_image);
-
-
-      //out_image = image_enhaced(image_depth);
-      
-
-      //cv::normalize(image_depth, out_image, 0, 1, cv::NORM_MINMAX, CV_8UC1);
-      //out_image=image_depth;
-
-      //cv::imshow("P52",depth_image);
-
-      //out_image = deep_image(in_image, false);
-    
-
-
-
       for (uint i = 0; i < points.size(); i++) {
-        circle(out_image, points[i], 3, cv::Scalar(0, 0, 255), -1);
+        circle(out_image, points[i], 3, cv::Scalar(255, 255, 255), -1);
+        float depth_value = depth_image.at<float>(points[i])*10;
+        std::string value_str = cv::format("%.2f",depth_value);
+        cv::putText(out_image, value_str, points[i], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
         // add text
       }
 
