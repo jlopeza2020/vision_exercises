@@ -281,39 +281,16 @@ void point_from_2D_to_3D(cv::Mat out_image, cv::Point clicked_point){
 
   cv::Mat res = K*extrinsic_matrixof2bf*point_req1;
 
-  //std::cout << res.at<float>(0, 0)/abs(res.at<float>(2, 0)) << std::endl;
-  //std::cout << res.at<float>(1, 0)/abs(res.at<float>(2, 0)) << std::endl;
-
   float x = res.at<float>(0, 0)/abs(res.at<float>(2, 0));
   float y = res.at<float>(1, 0)/abs(res.at<float>(2, 0));
 
-  //cv::Point center(res.at<float>(0, 0)/res.at<float>(2, 0),res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
-  //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
-
-  
-  //cv::putText(out_image, std::to_string(i), center, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
-
-  //}
-
   //conversion de 2D a 3D
 
-  float x_val = ((x - res.at<float>(2, 0))*z_val) / res.at<float>(0, 0);
-
-  float y_val = ((y - res.at<float>(2, 1))*z_val) / res.at<float>(1, 1);
-
-  //float z_val = depth_image.at<float>(clicked_point);
-
-  //std::cout << x_val << std::endl;
-  //std::cout << y_val << std::endl;
-  //std::cout << z_val << std::endl;
-
+  float x_val = ((x - K.at<float>(2, 0))*z_val) / K.at<float>(0, 0);
+  float y_val = ((y - K.at<float>(2, 1))*z_val) / K.at<float>(1, 1);
   circle(out_image, clicked_point, 3, cv::Scalar(255, 255, 255), -1);
-  //float depth_value = depth_image.at<float>(clicked_point);
 
   std::string value_str = cv::format("[%.2f, %.2f, %.2f]",x_val, y_val, z_val);
-        //std::cout << points[i].x << std::endl;
-        //std::cout << points[i].y << std::endl;
-        //point_from_2D_to_3D(points[i].x, points[i].y, depth_value);
   cv::putText(out_image, value_str, clicked_point, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 
 
@@ -378,15 +355,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       lines_from_3D_to_2D(out_image, value_distance);
 
       for (uint i = 0; i < points.size(); i++) {
-        //circle(out_image, points[i], 3, cv::Scalar(255, 255, 255), -1);
-        //float depth_value = depth_image.at<float>(points[i])*10;
-        //std::string value_str = cv::format("%.2f",depth_value);
-        //std::cout << points[i].x << std::endl;
-        //std::cout << points[i].y << std::endl;
         point_from_2D_to_3D(out_image, points[i]);
-        //cv::putText(out_image, value_str, points[i], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-
-        // add text 
       }
 
       break;
@@ -396,11 +365,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       out_image = depth_image;
 
       for (uint i = 0; i < points.size(); i++) {
-        circle(out_image, points[i], 3, cv::Scalar(255, 255, 255), -1);
-        float depth_value = depth_image.at<float>(points[i])*10;
-        std::string value_str = cv::format("%.2f",depth_value);
-        cv::putText(out_image, value_str, points[i], cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-        // add text
+        point_from_2D_to_3D(out_image, points[i]);
       }
 
       break;
