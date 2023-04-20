@@ -44,9 +44,7 @@ bool print_once = true;
 cv::Matx33f K; //intrinsic values 
 
 geometry_msgs::msg::TransformStamped extrinsicbf2of; 
-//geometry_msgs::msg::TransformStamped extrinsicof2bf; 
 cv::Matx34f extrinsic_matrixbf2of;
-//cv::Matx34f extrinsic_matrixof2bf;
 cv::Mat depth_image;
 
 cv::Mat image_processing(const cv::Mat in_image);
@@ -74,12 +72,8 @@ class ComputerVisionSubscriber : public rclcpp::Node
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-      /*tf_buffer2_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-      tf_listener2_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer2_);*/
-
       // Call on_timer function every 500ms
       timer_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer, this));
-      //timerop2_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer2, this));
 
 
       publisher_ = this->create_publisher<sensor_msgs::msg::Image>("cv_image", qos);
@@ -131,18 +125,6 @@ class ComputerVisionSubscriber : public rclcpp::Node
       }
 
       depth_image = cv_ptr->image;
-
-      /*for(int i = 0; i < depth_image.rows; i++){
-        for(int j = 0; j < depth_image.cols; j++){
-
-          if(std::isinf(depth_image.at<float>(i,j)) || std::isnan(depth_image.at<float>(i,j))){
-
-            depth_image.at<float>(i,j) = 0.0;
-          }
-        }
-      }*/
-
-      //cv::normalize(depth_image, depth_image, 0, 1, cv::NORM_MINMAX, CV_32FC1);
     }
 
     void on_timer(){
@@ -157,18 +139,6 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     }
 
-    /*void on_timer2(){
-
-      try {
-        // goes from base_footprint to optical frame 
-        extrinsicof2bf = tf_buffer2_->lookupTransform("base_footprint","head_front_camera_rgb_optical_frame", tf2::TimePointZero);
-      } catch (tf2::TransformException &ex) {
-        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
-        return;
-      }
-
-    }*/
-
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
@@ -176,10 +146,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-    //std::unique_ptr<tf2_ros::Buffer> tf_buffer2_;
-    //std::shared_ptr<tf2_ros::TransformListener> tf_listener2_;
     rclcpp::TimerBase::SharedPtr timer_;
-    //rclcpp::TimerBase::SharedPtr timerop2_;
 
 };
 
@@ -195,7 +162,6 @@ void on_mouse(int event, int x, int y, int, void*)
     points.push_back(cv::Point(x, y));
   }
 }
-
 
 cv::Mat detect_skeleton(cv::Mat in_image, int iters, int distance){
 
@@ -273,39 +239,7 @@ void lines_from_3D_to_2D(cv::Mat out_image, int distance){
 
 void point_from_2D_to_3D(cv::Mat out_image, cv::Point clicked_point, int opt){
 
-  
-  /*float z_val = depth_image.at<float>(clicked_point);
-  
-  // convertir de 3d a 2d para mostrar pantalla 
-  cv::Mat point_req1 = (cv::Mat_<float>(4,1) << clicked_point.x, clicked_point.y, z_val, 1.0);
-
-  cv::Mat res = K*extrinsic_matrixof2bf*point_req1;
-
-  float x = res.at<float>(0, 0)/res.at<float>(2, 0);
-  float y = res.at<float>(1, 0)/res.at<float>(2, 0);
-
-  //conversion de 2D a 3D
-
-  float x_val = (x - K(2, 0))*z_val / K(0, 0);
-  float y_val = ((y - K(2, 1))*z_val) / K(1, 1);
-  circle(out_image, clicked_point, 3, cv::Scalar(255, 255, 255), -1);
-
-  std::string value_str = cv::format("[%.2f, %.2f, %.2f]",x_val, y_val, z_val);
-  cv::putText(out_image, value_str, clicked_point, cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);*/
-
-
-
-  //float z_val = depth_image.at<float>(clicked_point);
-  
-  // convertir de 3d a 2d para mostrar pantalla 
-  /*cv::Mat point_req1 = (cv::Mat_<float>(4,1) << clicked_point.x, clicked_point.y, z_val, 1.0);
-
-  cv::Mat res = K*extrinsic_matrixof2bf*point_req1;
-
-  float x = res.at<float>(0, 0)/res.at<float>(2, 0);
-  float y = res.at<float>(1, 0)/res.at<float>(2, 0);*/
-
-  //conversion de 2D a 3D
+  //2D to 3D conversion 
   float x_val;
   float y_val;
   float z_val;
@@ -313,19 +247,14 @@ void point_from_2D_to_3D(cv::Mat out_image, cv::Point clicked_point, int opt){
   // due to normalization it is necessary to multiply by a factor
   // to get the most approximate value to option 1
   if (opt == 2){
-
     z_val = depth_image.at<float>(clicked_point)*7.97;
-
   }else{
-
     z_val = depth_image.at<float>(clicked_point);
   }
 
   x_val = ((clicked_point.x - K(2, 0))*z_val) / K(0, 0);
   y_val = ((clicked_point.y - K(2, 1))*z_val) / K(1, 1);
 
-  //float x_val = ((clicked_point.x - K(2, 0))*z_val) / K(0, 0);
-  //float y_val = ((clicked_point.y - K(2, 1))*z_val) / K(1, 1);
   circle(out_image, clicked_point, 3, cv::Scalar(255, 255, 255), -1);
 
   std::string value_str = cv::format("[%.2f, %.2f, %.2f]",x_val, y_val, z_val);
@@ -347,11 +276,6 @@ cv::Mat image_processing(const cv::Mat in_image)
   extrinsic_matrixbf2of = cv::Matx34f( 0, -1, 0, extrinsicbf2of.transform.translation.x,
                                   0, 0, -1, extrinsicbf2of.transform.translation.y,
                                   1, 0, 0, extrinsicbf2of.transform.translation.z);
-
-  /*extrinsic_matrixof2bf = cv::Matx34f( 0, 0, 1, extrinsicof2bf.transform.translation.x,
-                                       -1, 0, 0, extrinsicof2bf.transform.translation.y,
-                                       0, -1, 0, extrinsicof2bf.transform.translation.z);*/
-
   key = cv::pollKey();
 
   if(print_once){
@@ -409,6 +333,7 @@ cv::Mat image_processing(const cv::Mat in_image)
         }
       }
 
+      //enhaced image
       cv::normalize(depth_image, depth_image, 0, 1, cv::NORM_MINMAX, CV_32FC1);
       out_image = depth_image;
 
