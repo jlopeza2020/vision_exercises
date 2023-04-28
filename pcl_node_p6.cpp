@@ -34,9 +34,14 @@
 #include <pcl/conversions.h>
 #include <pcl/filters/voxel_grid.h>
 
+#include <pcl/point_cloud.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/passthrough.h>
+
 int key;
 bool print_once = true;
-pcl::PointCloud<pcl::PointXYZHSV> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
+pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
 
 class PCLSubscriber : public rclcpp::Node
 {
@@ -64,7 +69,7 @@ class PCLSubscriber : public rclcpp::Node
       pcl::fromROSMsg(*msg, point_cloud);     
 
       // PCL Processing
-      pcl::PointCloud<pcl::PointXYZHSV> pcl_pointcloud = pcl_processing(point_cloud);
+      pcl::PointCloud<pcl::PointXYZRGB> pcl_pointcloud = pcl_processing(point_cloud);
       
       // Convert to ROS data type
       sensor_msgs::msg::PointCloud2 output;
@@ -83,10 +88,35 @@ class PCLSubscriber : public rclcpp::Node
   TO-DO
 */
 
-//pcl::PointCloud<pcl::PointXYZRGB> get_hsv( pcl::PointCloud<pcl::PointXYZRGB> cloud, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
-pcl::PointCloud<pcl::PointXYZHSV> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud){
 
-  //pcl::PointCloud<pcl::PointXYZHSV> cloud_hsv_nptr;
+void PointCloudXYZRGB2XYZHSV (pcl::PointCloud<pcl::PointXYZRGB>& in, pcl::PointCloud<pcl::PointXYZHSV>& out)
+{
+  out.width = in.width;
+  out.height = in.height;
+  for (const auto &point : in){
+    pcl::PointXYZHSV p;
+    pcl::PointXYZRGBtoXYZHSV(point, p);
+    out.push_back(p);
+  }
+}
+
+void PointCloudXYZHSV2XYZRGB (pcl::PointCloud<pcl::PointXYZHSV>& in, pcl::PointCloud<pcl::PointXYZRGB>& out)
+{
+  out.width = in.width;
+  out.height = in.height;
+  for (const auto &point : in){
+    pcl::PointXYZRGB p;
+    pcl::PointXYZHSVtoXYZRGB(point, p);
+    out.push_back(p);
+  }
+}
+ 
+ 
+
+pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud_in, int h_min, int s_min,int v_min, int h_max, int s_max, int v_max){
+//pcl::PointCloud<pcl::PointXYZHSV> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud){
+
+  pcl::PointCloud<pcl::PointXYZRGB> cloud_out;
 
   // convert image in hsv 
 
@@ -105,49 +135,58 @@ pcl::PointCloud<pcl::PointXYZHSV> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
   // Cargamos la nube de puntos RGB
   //PointCloud<PointXYZRGB>::Ptr cloud(new PointCloud<PointXYZRGB>);
 
+    // Convertir de RGB a HSV
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv(new pcl::PointCloud<pcl::PointXYZHSV>);
+    //PointXYZRGB2XYZHSV(cloud_in, *cloud_hsv);
+    PointCloudXYZRGB2XYZHSV(cloud_in, *cloud_hsv);
+    // Definir el rango de valores HSV para el color rosa
+    /*int hue_min = 140;
+    int hue_max = 170;
+    int sat_min = 100;
+    int sat_max = 255;
+    int val_min = 100;
+    int val_max = 255;*/
 
-  // Convertimos la nube de puntos RGB a HSV
-  cv::Mat img_hsv(cloud.height, cloud.width, CV_8UC3);
-  for (size_t i = 0; i < cloud.size(); i++) {
-    cv::Vec3b rgb(cloud.points[i].r, cloud.points[i].g, cloud.points[i].b);
-    cv::Vec3b hsv;
-    cv::cvtColor(cv::Mat(rgb), cv::Mat(hsv), cv::COLOR_BGR2HSV);
-    img_hsv.at<cv::Vec3b>(i / cloud.width, i % cloud.width) = hsv;
-  }
+    // Crear una condición para filtrar los puntos de color rosa
+    pcl::ConditionAnd<pcl::PointXYZHSV>::Ptr color_cond(new pcl::ConditionAnd<pcl::PointXYZHSV>);
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("h", pcl::ComparisonOps::GE, h_min)));
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("h", pcl::ComparisonOps::LE, h_max)));
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::GE, s_min)));
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::LE, s_max)));
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::GE, v_min)));
+    color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::LE, v_max)));
 
-  // Convertimos la imagen HSV a una nube de puntos
-  pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv(new pcl::PointCloud<pcl::PointXYZHSV>);
-  for (int v = 0; v < img_hsv.rows; v++) {
-    for (int u = 0; u < img_hsv.cols; u++) {
-      cv::Vec3b hsv = img_hsv.at<cv::Vec3b>(v, u);
-      pcl::PointXYZHSV point;
-      point.x = cloud.at(u, v).x;
-      point.y = cloud.at(u, v).y;
-      point.z = cloud.at(u, v).z;
-      point.h = hsv[0];
-      point.s = hsv[1];
-      point.v = hsv[2];
-      cloud_hsv->push_back(point);
-    }
-  }
+    // Aplicar el filtro de condición para filtrar los puntos de color rosa
+    pcl::ConditionalRemoval<pcl::PointXYZHSV> condrem;
+    condrem.setCondition(color_cond);
+    condrem.setInputCloud(cloud_hsv);
+    condrem.filter(*cloud_hsv);
 
-  // Convertir de puntero a objeto
-  pcl::PointCloud<pcl::PointXYZHSV> cloud_hsv_nptr = *cloud_hsv;
+    // Convertir de vuelta de HSV a RGB
+    pcl::PointXYZHSVtoXYZRGB(*cloud_hsv, cloud_out);
 
-  return cloud_hsv_nptr;
+  
+
+  return cloud_out;
 }
 
 
 //modify point cloud
-pcl::PointCloud<pcl::PointXYZHSV> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
+pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   // Create output pointcloud
-  pcl::PointCloud<pcl::PointXYZHSV> out_pointcloud;
+  pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
 
   // Processing
   //out_pointcloud = in_pointcloud;
 
-  /*cv::Mat test = cv::Mat::zeros(cv::Size(600,100), CV_32FC1);
+  cv::Mat test = cv::Mat::zeros(cv::Size(600,100), CV_32FC1);
 
   int max_h = 255;
   int max_s =  255;
@@ -183,15 +222,15 @@ pcl::PointCloud<pcl::PointXYZHSV> pcl_processing(const pcl::PointCloud<pcl::Poin
   int gt_max_v = cv::getTrackbarPos("max V", "P5");
   int gt_min_h = cv::getTrackbarPos("min H", "P5");
   int gt_min_s = cv::getTrackbarPos("min S", "P5");
-  int gt_min_v = cv::getTrackbarPos("min V", "P5");*/
+  int gt_min_v = cv::getTrackbarPos("min V", "P5");
 
 
 
-  //out_pointcloud = get_hsv(in_pointcloud, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
+  out_pointcloud = get_hsv(in_pointcloud, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
 
-  out_pointcloud = get_hsv(in_pointcloud);
+  //out_pointcloud = get_hsv(in_pointcloud);
 
-  //cv::imshow("P5",test);
+  cv::imshow("P5",test);
 
 
   return out_pointcloud;
