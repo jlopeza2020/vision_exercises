@@ -129,18 +129,19 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
   color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
                                  new pcl::FieldComparison<pcl::PointXYZHSV>("h", pcl::ComparisonOps::LE, h_max)));
   color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::GE, s_min/255.0)));
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::GE, s_min/255)));
   color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::LE, s_max/255.0)));
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::LE, s_max/255)));
   color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::GE, v_min/255.0)));
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::GE, v_min/255)));
   color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::LE, v_max/255.0)));
+                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::LE, v_max/255)));
 
   // Aplicar el filtro de condición para filtrar los puntos de color rosa
   pcl::ConditionalRemoval<pcl::PointXYZHSV> condrem;
   condrem.setCondition(color_cond);
   condrem.setInputCloud(cloud_hsv);
+  condrem.setKeepOrganized(true);
   condrem.filter(*cloud_hsv);
 
   // Convertir de vuelta de HSV a RGB
@@ -161,10 +162,10 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
 
   cv::Mat test = cv::Mat::zeros(cv::Size(600,100), CV_32FC1);
 
-  int max_h = 255;
+  int max_h = 360;
   int max_s =  255;
   int max_v =  255;
-  int min_h = 255;
+  int min_h = 360;
   int min_s =  255;
   int min_v =  255;
   int zero = 0;
@@ -176,11 +177,11 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
     cv::namedWindow("P5");
 
     cv::createTrackbar("max H", "P5", nullptr, max_h, 0);
-    cv::setTrackbarPos("max H", "P5", zero);
+    cv::setTrackbarPos("max H", "P5", max_h);
     cv::createTrackbar("max S", "P5", nullptr, max_s, 0);
-    cv::setTrackbarPos("max S", "P5", zero);
+    cv::setTrackbarPos("max S", "P5", max_s);
     cv::createTrackbar("max V", "P5", nullptr, max_v, 0);
-    cv::setTrackbarPos("max V", "P5", zero);
+    cv::setTrackbarPos("max V", "P5", max_v);
     cv::createTrackbar("min H", "P5", nullptr, min_h, 0);
     cv::setTrackbarPos("min H", "P5", zero);
     cv::createTrackbar("min S", "P5", nullptr, min_s, 0);
