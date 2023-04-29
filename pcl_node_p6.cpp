@@ -128,47 +128,20 @@ void PointCloudXYZHSV2XYZRGB(pcl::PointCloud<pcl::PointXYZHSV>& in, pcl::PointCl
 }
  
 pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud_in){
-//pcl::PointCloud<pcl::PointXYZHSV> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud){
 
   pcl::PointCloud<pcl::PointXYZRGB> cloud_out;
   pcl::PointCloud<pcl::PointXYZHSV> cloud_hsv_filtered;
-  //pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv_filtered;(new pcl::PointCloud<pcl::PointXYZHSV>);
 
   // Convertir de RGB a HSV
   pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv(new pcl::PointCloud<pcl::PointXYZHSV>);
   PointCloudXYZRGB2XYZHSV(cloud_in, *cloud_hsv);
 
   
-  /*// Crear una condición para filtrar los puntos de color rosa
-  pcl::ConditionAnd<pcl::PointXYZHSV>::Ptr color_cond(new pcl::ConditionAnd<pcl::PointXYZHSV>);
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("h", pcl::ComparisonOps::GE, 297)));
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("h", pcl::ComparisonOps::LE, 300)));
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::GE, 254/255)));
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("s", pcl::ComparisonOps::LE, 255/255)));
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::GE, 254/255)));
-  color_cond->addComparison(pcl::FieldComparison<pcl::PointXYZHSV>::ConstPtr(
-                                 new pcl::FieldComparison<pcl::PointXYZHSV>("v", pcl::ComparisonOps::LE, 255/255)));
-
-  // Aplicar el filtro de condición para filtrar los puntos de color rosa
-  pcl::ConditionalRemoval<pcl::PointXYZHSV> condrem;
-  condrem.setCondition(color_cond);
-  condrem.setInputCloud(cloud_hsv);
-  condrem.setKeepOrganized(true);
-  condrem.filter(*cloud_hsv);*/
-
-  //pcl::PointCloud<pcl::PointXYZHSV>::Ptr ptr_pink(new pcl::PointCloud<pcl::PointXYZHSV>);
   for(size_t i = 0; i < cloud_hsv->size(); ++i){
     float h = cloud_hsv->points[i].h*(255.0/360.0);
     float s = cloud_hsv->points[i].s*255.0;
     float v = cloud_hsv->points[i].v*255.0;
     
-    //std::cout << "v " << cloud_hsv->points[i].v << std::endl;
-
     if((h >= 200.0 && s >= 190.0 && v >= 0.0 && h <= 220.0 && s <= 255.0 && v<= 255.0 )){
 
       pcl::PointXYZHSV point;
@@ -180,16 +153,7 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
       point.v = cloud_hsv->points[i].v;
       cloud_hsv_filtered.push_back(point);
     }
-    /*pcl::PointXYZHSV point;
-    point.x = cloud_hsv->points[i].x;
-    point.y = cloud_hsv->points[i].y;
-    point.z = cloud_hsv->points[i].z;
-    point.h = cloud_hsv->points[i].h;
-    point.s = cloud_hsv->points[i].s;
-    point.v = cloud_hsv->points[i].v;
-    cloud_hsv_filtered.push_back(point);*/
   }
-
 
   // Convertir de vuelta de HSV a RGB
   PointCloudXYZHSV2XYZRGB(cloud_hsv_filtered, cloud_out);
@@ -210,7 +174,49 @@ pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZR
   return cloud_filtered;
 }
 
-void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
+
+void draw_square(pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered , float x_center, float y_center, float z_center)
+{
+
+  // Definir las dimensiones del cubo
+  float cube_size = 0.3;
+
+  // Crear las 8 esquinas del cubo
+  pcl::PointXYZRGB v0, v1, v2, v3, v4, v5, v6, v7;
+
+  v0.x = x_center - cube_size/2; v0.y = y_center - cube_size/2; v0.z = z_center - cube_size/2;
+  v1.x = x_center + cube_size/2; v1.y = y_center - cube_size/2; v1.z = z_center - cube_size/2;
+  v2.x = x_center + cube_size/2; v2.y = y_center + cube_size/2; v2.z = z_center - cube_size/2;
+  v3.x = x_center - cube_size/2; v3.y = y_center + cube_size/2; v3.z = z_center - cube_size/2;
+  v4.x = x_center - cube_size/2; v4.y = y_center - cube_size/2; v4.z = z_center + cube_size/2;
+  v5.x = x_center + cube_size/2; v5.y = y_center - cube_size/2; v5.z = z_center + cube_size/2;
+  v6.x = x_center + cube_size/2; v6.y = y_center + cube_size/2; v6.z = z_center + cube_size/2;
+  v7.x = x_center - cube_size/2; v7.y = y_center + cube_size/2; v7.z = z_center + cube_size/2;
+
+  // Establecer el color del cubo en rojo (R=255, G=0, B=0)
+  v0.r = 0; v0.g = 0; v0.b = 255;
+  v1.r = 0; v1.g = 0; v1.b = 255;
+  v2.r = 0; v2.g = 0; v2.b = 255;
+  v3.r = 0; v3.g = 0; v3.b = 255;
+  v4.r = 0; v4.g = 0; v4.b = 255;
+  v5.r = 0; v5.g = 0; v5.b = 255;
+  v6.r = 0; v6.g = 0; v6.b = 255;
+  v7.r = 0; v7.g = 0; v7.b = 255;
+
+  // Agregar los vértices del cubo al PointCloud
+  cloud_filtered.push_back(v0);
+  cloud_filtered.push_back(v1);
+  cloud_filtered.push_back(v2);
+  cloud_filtered.push_back(v3);
+  cloud_filtered.push_back(v4);
+  cloud_filtered.push_back(v5);
+  cloud_filtered.push_back(v6);
+  cloud_filtered.push_back(v7);
+
+  
+}
+
+/*void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
 
   std::vector<pcl::PointCloud<pcl::PointXYZRGB>> center_cubes;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
@@ -224,26 +230,30 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
   seg.setDistanceThreshold(0.01);
   seg.setMaxIterations(1000);
 
-  //while(cloud->points.size() > 0 ){
+  while(cloud->points.size() > 0 ){
     //Adjust model
-  pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-  seg.setInputCloud(cloud);
-  seg.segment(*inliers, *coefficients);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coefficients);
 
-  //if(inliers->indices.size() < 100){
-  //  break;
-  //}
-  std::cout << "coef esfera" << std::endl;
-  std::cout << "Centro x" << coefficients->values[0] << std::endl;
-  std::cout << "Centro y" << coefficients->values[1] << std::endl;
-  std::cout << "Centro z" << coefficients->values[2] << std::endl;
-  std::cout << "Radio:" << coefficients->values[3] << std::endl;
-  //}
+    if(inliers->indices.size() < 100){
+      break;
+    }
+    std::cout << "coef esfera" << std::endl;
+    std::cout << "Centro x" << coefficients->values[0] << std::endl;
+    std::cout << "Centro y" << coefficients->values[1] << std::endl;
+    std::cout << "Centro z" << coefficients->values[2] << std::endl;
+    std::cout << "Radio:" << coefficients->values[3] << std::endl;
 
-}
+    draw_square(cloud, coefficients->values[0], coefficients->values[1], coefficients->values[2]);
 
-void ejemplo (pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
+  }
+
+
+}*/
+
+void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
 
@@ -262,29 +272,54 @@ void ejemplo (pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
   seg.setMaxIterations (1000);
   seg.setDistanceThreshold (0.01);
 
-  //pcl::ExtractIndices<pcl::PointXYZ> extract;
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-
 
   int i = 0, nr_points = (int) cloud_filtered->size ();
   // While 30% of the original cloud is still there
   while (cloud_filtered->size () > 0.3 * nr_points)
   {
-    // Segment the largest planar component from the remaining cloud
+    // Segment the largest sphere component from the remaining cloud
     seg.setInputCloud (cloud_filtered);
     seg.segment (*inliers, *coefficients);
     if (inliers->indices.size () == 0)
     {
-      std::cerr << "Could not estimate a planar model for the given dataset." << std::endl;
+      std::cerr << "Could not estimate a sphere model for the given dataset." << std::endl;
       break;
     }
+
+    float x_center = coefficients->values[0];
+    float y_center = coefficients->values[1];
+    float z_center = coefficients->values[2];
+
+    float max= 0.15;
+    float advance = 0.008;
+
+    for(float i = 0.0; i < max; i+= advance){
+      for(float j = 0.0; j < max; j+= advance){
+        for(float k = 0.0; k < max; k+= advance){
+
+          pcl::PointXYZRGB point;
+          point.x = x_center + i;
+          point.y = y_center + j;
+          point.z = z_center + k;
+          point.r = 0;
+          point.g = 0;
+          point.b = 255;
+          in_cloud.push_back(point);
+
+        }
+
+      }
+
+    }
+
+    //draw_square(in_cloud, coefficients->values[0], coefficients->values[1], coefficients->values[2]);
 
     // Extract the inliers
     extract.setInputCloud (cloud_filtered);
     extract.setIndices (inliers);
     extract.setNegative (false);
     extract.filter (*cloud_p);
-    std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points." << std::endl;
 
     // Create the filtering object
     extract.setNegative (true);
@@ -297,7 +332,7 @@ void ejemplo (pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
 //modify point cloud
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
-  // Create output pointcloud
+  // Create pointclouds
   //pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
@@ -305,9 +340,8 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
   outlier_pointcloud = get_hsv(in_pointcloud);
   inlier_pointcloud = remove_outliers(outlier_pointcloud);
   detect_spheres(inlier_pointcloud);
-  //ejemplo(inlier_pointcloud);
 
-  return outlier_pointcloud;
+  return inlier_pointcloud;
 }
 
 
