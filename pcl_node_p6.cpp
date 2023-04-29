@@ -55,10 +55,24 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 
+#include "image_geometry/pinhole_camera_model.h"
 
-int key;
-bool print_once = true;
+
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "geometry_msgs/msg/transform_stamped.h"
+#include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+
+
+//int key;
+//bool print_once = true;
+using namespace std::chrono_literals;
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
+cv::Matx33f K; //intrinsic values 
+geometry_msgs::msg::TransformStamped extrinsicbf2of; 
+cv::Matx34f extrinsic_matrixbf2of;
 
 class PCLSubscriber : public rclcpp::Node
 {
@@ -71,7 +85,17 @@ class PCLSubscriber : public rclcpp::Node
 
       subscription_3d_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/head_front_camera/depth_registered/points", qos, std::bind(&PCLSubscriber::topic_callback_3d, this, std::placeholders::_1));
+
+      subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      "/head_front_camera/rgb/camera_info", qos, std::bind(&PCLSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
+      // transform listener inialization
+      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+      // Call on_timer function every 500ms
+      timer_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
+      
       publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "pcl_points", qos);
     }
@@ -96,6 +120,36 @@ class PCLSubscriber : public rclcpp::Node
       // Publish the data
       publisher_3d_ -> publish(output);
     }
+
+    void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
+    {           
+      // create camera model
+      image_geometry::PinholeCameraModel camera_model = image_geometry::PinholeCameraModel();
+      camera_model.fromCameraInfo(msg);
+
+      //Obtain intrinsic matrix
+      K = camera_model.intrinsicMatrix();
+
+    }
+
+    void on_timer(){
+
+      try {
+        // goes from base_footprint to optical frame 
+        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+      } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        return;
+      }
+
+    }
+
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
+
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
@@ -174,84 +228,37 @@ pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZR
   return cloud_filtered;
 }
 
-
-void draw_square(pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered , float x_center, float y_center, float z_center)
-{
-
-  // Definir las dimensiones del cubo
-  float cube_size = 0.3;
-
-  // Crear las 8 esquinas del cubo
-  pcl::PointXYZRGB v0, v1, v2, v3, v4, v5, v6, v7;
-
-  v0.x = x_center - cube_size/2; v0.y = y_center - cube_size/2; v0.z = z_center - cube_size/2;
-  v1.x = x_center + cube_size/2; v1.y = y_center - cube_size/2; v1.z = z_center - cube_size/2;
-  v2.x = x_center + cube_size/2; v2.y = y_center + cube_size/2; v2.z = z_center - cube_size/2;
-  v3.x = x_center - cube_size/2; v3.y = y_center + cube_size/2; v3.z = z_center - cube_size/2;
-  v4.x = x_center - cube_size/2; v4.y = y_center - cube_size/2; v4.z = z_center + cube_size/2;
-  v5.x = x_center + cube_size/2; v5.y = y_center - cube_size/2; v5.z = z_center + cube_size/2;
-  v6.x = x_center + cube_size/2; v6.y = y_center + cube_size/2; v6.z = z_center + cube_size/2;
-  v7.x = x_center - cube_size/2; v7.y = y_center + cube_size/2; v7.z = z_center + cube_size/2;
-
-  // Establecer el color del cubo en rojo (R=255, G=0, B=0)
-  v0.r = 0; v0.g = 0; v0.b = 255;
-  v1.r = 0; v1.g = 0; v1.b = 255;
-  v2.r = 0; v2.g = 0; v2.b = 255;
-  v3.r = 0; v3.g = 0; v3.b = 255;
-  v4.r = 0; v4.g = 0; v4.b = 255;
-  v5.r = 0; v5.g = 0; v5.b = 255;
-  v6.r = 0; v6.g = 0; v6.b = 255;
-  v7.r = 0; v7.g = 0; v7.b = 255;
-
-  // Agregar los vértices del cubo al PointCloud
-  cloud_filtered.push_back(v0);
-  cloud_filtered.push_back(v1);
-  cloud_filtered.push_back(v2);
-  cloud_filtered.push_back(v3);
-  cloud_filtered.push_back(v4);
-  cloud_filtered.push_back(v5);
-  cloud_filtered.push_back(v6);
-  cloud_filtered.push_back(v7);
+// need to be reevised
+void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center){
 
   
-}
+  //pcl::PointCloud<pcl::PointXYZRGB> new_cloud;
+  float max= 0.15;
+  float advance = 0.008;
+  
 
-/*void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
+  for(float i = 0.0; i < max; i+= advance){
+    for(float j = 0.0; j < max; j+= advance){
+      for(float k = 0.0; k < max; k+= advance){
 
-  std::vector<pcl::PointCloud<pcl::PointXYZRGB>> center_cubes;
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
+        pcl::PointXYZRGB point;
+        point.x = x_center + i;
+        point.y = y_center + j;
+        point.z = z_center + k;
+        point.r = 0;
+        point.g = 0;
+        point.b = 255;
+        cloud.push_back(point);
 
-  //Create model of sphere
-
-  pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-  seg.setOptimizeCoefficients(true);
-  seg.setModelType(pcl::SACMODEL_SPHERE);
-  seg.setMethodType(pcl::SAC_RANSAC);
-  seg.setDistanceThreshold(0.01);
-  seg.setMaxIterations(1000);
-
-  while(cloud->points.size() > 0 ){
-    //Adjust model
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    seg.setInputCloud(cloud);
-    seg.segment(*inliers, *coefficients);
-
-    if(inliers->indices.size() < 100){
-      break;
+      }
     }
-    std::cout << "coef esfera" << std::endl;
-    std::cout << "Centro x" << coefficients->values[0] << std::endl;
-    std::cout << "Centro y" << coefficients->values[1] << std::endl;
-    std::cout << "Centro z" << coefficients->values[2] << std::endl;
-    std::cout << "Radio:" << coefficients->values[3] << std::endl;
-
-    draw_square(cloud, coefficients->values[0], coefficients->values[1], coefficients->values[2]);
-
   }
 
+  //pcl::PointCloud<pcl::PointXYZRGB> merged_cloud;
+  //merged_cloud = cloud;
+  //cloud += new_cloud;
 
-}*/
+}
 
 void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
 {
@@ -291,7 +298,9 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
     float y_center = coefficients->values[1];
     float z_center = coefficients->values[2];
 
-    float max= 0.15;
+    print_cubes(in_cloud, x_center, y_center,z_center);
+
+    /*float max= 0.15;
     float advance = 0.008;
 
     for(float i = 0.0; i < max; i+= advance){
@@ -305,15 +314,13 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
           point.r = 0;
           point.g = 0;
           point.b = 255;
-          in_cloud.push_back(point);
+          in_cloud.push_back(point);*/
 
-        }
+   //     }
 
-      }
+     // }
 
-    }
-
-    //draw_square(in_cloud, coefficients->values[0], coefficients->values[1], coefficients->values[2]);
+    //}
 
     // Extract the inliers
     extract.setInputCloud (cloud_filtered);
@@ -329,6 +336,32 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
   }
 }
 
+void lines_from_3D_to_2D(pcl::PointCloud<pcl::PointXYZRGB> cloud){
+
+  
+  for(int i = 0; i <= 8; i++){
+
+    cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
+    cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+
+    cv::Mat res = K*extrinsic_matrixbf2of*point_req1;
+    cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
+
+    float x_center_left = res.at<float>(0, 0)/abs(res.at<float>(2, 0));
+    float y_center_left = res.at<float>(1, 0)/abs(res.at<float>(2, 0));
+    float z_center_left = 0.0;
+    print_cubes(cloud, x_center_left, y_center_left, z_center_left);//{
+
+    //cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)), res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+    //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+    //cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+    //cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+
+  }
+}
+
 //modify point cloud
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
@@ -336,6 +369,19 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
   //pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
+
+  auto rotation = extrinsicbf2of.transform.rotation;
+  
+  tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
+  
+  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
+                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
+                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
+  
+
+
+  //fix it 
+  lines_from_3D_to_2D(in_pointcloud);
 
   outlier_pointcloud = get_hsv(in_pointcloud);
   inlier_pointcloud = remove_outliers(outlier_pointcloud);
