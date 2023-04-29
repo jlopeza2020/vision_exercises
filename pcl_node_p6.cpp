@@ -68,8 +68,6 @@
 
 
 using namespace std::chrono_literals;
-//int key;
-//bool print_once = true;
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
 
 cv::Matx33f K; //intrinsic values 
@@ -91,9 +89,6 @@ class PCLSubscriber : public rclcpp::Node
       subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
       "/head_front_camera/rgb/camera_info", qos, std::bind(&PCLSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
-      //subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
-      //"/head_front_camera/depth_registered/image_raw", qos, std::bind(&PCLSubscriber::topic_callback_depth, this, std::placeholders::_1));
-
       // transform listener inialization
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
       tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -102,8 +97,7 @@ class PCLSubscriber : public rclcpp::Node
       timer_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
 
       
-      publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
-      "pcl_points", qos);
+      publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("pcl_points", qos);
     }
 
   private:
@@ -138,23 +132,6 @@ class PCLSubscriber : public rclcpp::Node
 
     }
 
-    /*void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
-    {     
-    
-      cv_bridge::CvImagePtr cv_ptr;
-      try
-      {
-        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
-      }
-      catch (cv_bridge::Exception &e)
-      {
-        RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
-        return;
-      }
-
-      depth_image = cv_ptr->image;
-    }*/
-
     void on_timer(){
 
       try {
@@ -168,7 +145,6 @@ class PCLSubscriber : public rclcpp::Node
     }
 
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
-    //rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -252,56 +228,15 @@ pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZR
   return cloud_filtered;
 }
 
-
-void draw_square(pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered , float x_center, float y_center, float z_center)
-{
-
-  // Definir las dimensiones del cubo
-  float cube_size = 0.3;
-
-  // Crear las 8 esquinas del cubo
-  pcl::PointXYZRGB v0, v1, v2, v3, v4, v5, v6, v7;
-
-  v0.x = x_center - cube_size/2; v0.y = y_center - cube_size/2; v0.z = z_center - cube_size/2;
-  v1.x = x_center + cube_size/2; v1.y = y_center - cube_size/2; v1.z = z_center - cube_size/2;
-  v2.x = x_center + cube_size/2; v2.y = y_center + cube_size/2; v2.z = z_center - cube_size/2;
-  v3.x = x_center - cube_size/2; v3.y = y_center + cube_size/2; v3.z = z_center - cube_size/2;
-  v4.x = x_center - cube_size/2; v4.y = y_center - cube_size/2; v4.z = z_center + cube_size/2;
-  v5.x = x_center + cube_size/2; v5.y = y_center - cube_size/2; v5.z = z_center + cube_size/2;
-  v6.x = x_center + cube_size/2; v6.y = y_center + cube_size/2; v6.z = z_center + cube_size/2;
-  v7.x = x_center - cube_size/2; v7.y = y_center + cube_size/2; v7.z = z_center + cube_size/2;
-
-  // Establecer el color del cubo en rojo (R=255, G=0, B=0)
-  v0.r = 0; v0.g = 0; v0.b = 255;
-  v1.r = 0; v1.g = 0; v1.b = 255;
-  v2.r = 0; v2.g = 0; v2.b = 255;
-  v3.r = 0; v3.g = 0; v3.b = 255;
-  v4.r = 0; v4.g = 0; v4.b = 255;
-  v5.r = 0; v5.g = 0; v5.b = 255;
-  v6.r = 0; v6.g = 0; v6.b = 255;
-  v7.r = 0; v7.g = 0; v7.b = 255;
-
-  // Agregar los vértices del cubo al PointCloud
-  cloud_filtered.push_back(v0);
-  cloud_filtered.push_back(v1);
-  cloud_filtered.push_back(v2);
-  cloud_filtered.push_back(v3);
-  cloud_filtered.push_back(v4);
-  cloud_filtered.push_back(v5);
-  cloud_filtered.push_back(v6);
-  cloud_filtered.push_back(v7);
+void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center){
 
   
-}
-
-void print_cubes(pcl::PointCloud<pcl::PointXYZRGB> cloud, float x_center, float y_center,float z_center){
-
-  //float x_center = coefficients->values[0];
-  //float y_center = coefficients->values[1];
-  //float z_center = coefficients->values[2];
-
+  //pcl::PointCloud<pcl::PointXYZRGB> new_cloud;
   float max= 0.15;
   float advance = 0.008;
+  //uint_t r = 0;
+  //uint_t g = 0;
+  //uint_t b = 255;
 
   for(float i = 0.0; i < max; i+= advance){
     for(float j = 0.0; j < max; j+= advance){
@@ -311,15 +246,21 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB> cloud, float x_center, float 
         point.x = x_center + i;
         point.y = y_center + j;
         point.z = z_center + k;
-        point.r = 255;
+        point.r = 0;
         point.g = 0;
-        point.b = 0;
+        point.b = 255;
         cloud.push_back(point);
 
       }
     }
   }
+
+  //pcl::PointCloud<pcl::PointXYZRGB> merged_cloud;
+  //merged_cloud = cloud;
+  //cloud += new_cloud;
+
 }
+
 
 /*void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
 
@@ -358,7 +299,7 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB> cloud, float x_center, float 
 
 }*/
 
-void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
+void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
 
@@ -469,8 +410,8 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
 {
   // Create pointclouds
   //pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
-  //pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
-  //pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
+  pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
+  pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
 
 
   auto rotation = extrinsicbf2of.transform.rotation;
@@ -483,12 +424,12 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
   
 
 
-  lines_from_3D_to_2D(in_pointcloud);
-  //outlier_pointcloud = get_hsv(in_pointcloud);
-  //inlier_pointcloud = remove_outliers(outlier_pointcloud);
-  //detect_spheres(inlier_pointcloud);
+  //lines_from_3D_to_2D(in_pointcloud);
+  outlier_pointcloud = get_hsv(in_pointcloud);
+  inlier_pointcloud = remove_outliers(outlier_pointcloud);
+  detect_spheres(inlier_pointcloud);
 
-  return in_pointcloud;
+  return inlier_pointcloud;
 }
 
 
