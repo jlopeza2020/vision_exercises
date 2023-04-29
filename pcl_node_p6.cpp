@@ -55,10 +55,26 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 
+#include "image_geometry/pinhole_camera_model.h"
 
-int key;
-bool print_once = true;
+
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "geometry_msgs/msg/transform_stamped.h"
+#include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+
+
+
+using namespace std::chrono_literals;
+//int key;
+//bool print_once = true;
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
+
+cv::Matx33f K; //intrinsic values 
+geometry_msgs::msg::TransformStamped extrinsicbf2of; 
+cv::Matx34f extrinsic_matrixbf2of;
 
 class PCLSubscriber : public rclcpp::Node
 {
@@ -72,6 +88,20 @@ class PCLSubscriber : public rclcpp::Node
       subscription_3d_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/head_front_camera/depth_registered/points", qos, std::bind(&PCLSubscriber::topic_callback_3d, this, std::placeholders::_1));
     
+      subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      "/head_front_camera/rgb/camera_info", qos, std::bind(&PCLSubscriber::topic_callback_in_params, this, std::placeholders::_1));
+    
+      //subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
+      //"/head_front_camera/depth_registered/image_raw", qos, std::bind(&PCLSubscriber::topic_callback_depth, this, std::placeholders::_1));
+
+      // transform listener inialization
+      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+      // Call on_timer function every 500ms
+      timer_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
+
+      
       publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "pcl_points", qos);
     }
@@ -96,6 +126,54 @@ class PCLSubscriber : public rclcpp::Node
       // Publish the data
       publisher_3d_ -> publish(output);
     }
+
+    void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
+    {           
+      // create camera model
+      image_geometry::PinholeCameraModel camera_model = image_geometry::PinholeCameraModel();
+      camera_model.fromCameraInfo(msg);
+
+      //Obtain intrinsic matrix
+      K = camera_model.intrinsicMatrix();
+
+    }
+
+    /*void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
+    {     
+    
+      cv_bridge::CvImagePtr cv_ptr;
+      try
+      {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      }
+      catch (cv_bridge::Exception &e)
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
+        return;
+      }
+
+      depth_image = cv_ptr->image;
+    }*/
+
+    void on_timer(){
+
+      try {
+        // goes from base_footprint to optical frame 
+        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+      } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        return;
+      }
+
+    }
+
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
+    //rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
+
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
@@ -216,6 +294,33 @@ void draw_square(pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered , float x_cent
   
 }
 
+void print_cubes(pcl::PointCloud<pcl::PointXYZRGB> cloud, float x_center, float y_center,float z_center){
+
+  //float x_center = coefficients->values[0];
+  //float y_center = coefficients->values[1];
+  //float z_center = coefficients->values[2];
+
+  float max= 0.15;
+  float advance = 0.008;
+
+  for(float i = 0.0; i < max; i+= advance){
+    for(float j = 0.0; j < max; j+= advance){
+      for(float k = 0.0; k < max; k+= advance){
+
+        pcl::PointXYZRGB point;
+        point.x = x_center + i;
+        point.y = y_center + j;
+        point.z = z_center + k;
+        point.r = 255;
+        point.g = 0;
+        point.b = 0;
+        cloud.push_back(point);
+
+      }
+    }
+  }
+}
+
 /*void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud){
 
   std::vector<pcl::PointCloud<pcl::PointXYZRGB>> center_cubes;
@@ -274,7 +379,7 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
 
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
-  int i = 0, nr_points = (int) cloud_filtered->size ();
+  int in = 0, nr_points = (int) cloud_filtered->size ();
   // While 30% of the original cloud is still there
   while (cloud_filtered->size () > 0.3 * nr_points)
   {
@@ -325,23 +430,65 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB> in_cloud)
     extract.setNegative (true);
     extract.filter (*cloud_f);
     cloud_filtered.swap (cloud_f);
-    i++;
+    in++;
   }
 }
+
+void lines_from_3D_to_2D(pcl::PointCloud<pcl::PointXYZRGB> cloud){
+
+  
+  for(int i = 0; i <= 8; i++){
+
+    cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
+    cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+
+    cv::Mat res = K*extrinsic_matrixbf2of*point_req1;
+    cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
+
+    float x_center_left = res.at<float>(0, 0)/abs(res.at<float>(2, 0));
+    float y_center_left = res.at<float>(1, 0)/abs(res.at<float>(2, 0));
+    float z_center_left = 0.0;
+    print_cubes(cloud, x_center_left, y_center_left, z_center_left);//{
+
+    //cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)), res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+    //cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+    //cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+    //cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+    //cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
+
+    //cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
+
+  }
+}
+
 
 //modify point cloud
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   // Create pointclouds
   //pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
-  pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
-  pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
+  //pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
+  //pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
 
-  outlier_pointcloud = get_hsv(in_pointcloud);
-  inlier_pointcloud = remove_outliers(outlier_pointcloud);
-  detect_spheres(inlier_pointcloud);
 
-  return inlier_pointcloud;
+  auto rotation = extrinsicbf2of.transform.rotation;
+  
+  tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
+  
+  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
+                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
+                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
+  
+
+
+  lines_from_3D_to_2D(in_pointcloud);
+  //outlier_pointcloud = get_hsv(in_pointcloud);
+  //inlier_pointcloud = remove_outliers(outlier_pointcloud);
+  //detect_spheres(inlier_pointcloud);
+
+  return in_pointcloud;
 }
 
 
