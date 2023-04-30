@@ -65,12 +65,10 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 
-//#include "ros/ros.h"
-
 
 using namespace std::chrono_literals;
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
-cv::Matx33f K; //intrinsic values 
+//cv::Matx33f K; //intrinsic values 
 geometry_msgs::msg::TransformStamped extrinsicbf2of; 
 cv::Matx34f extrinsic_matrixbf2of;
 
@@ -86,8 +84,8 @@ class PCLSubscriber : public rclcpp::Node
       subscription_3d_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/head_front_camera/depth_registered/points", qos, std::bind(&PCLSubscriber::topic_callback_3d, this, std::placeholders::_1));
 
-      subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-      "/head_front_camera/rgb/camera_info", qos, std::bind(&PCLSubscriber::topic_callback_in_params, this, std::placeholders::_1));
+      //subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      //"/head_front_camera/rgb/camera_info", qos, std::bind(&PCLSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
       // transform listener inialization
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -121,7 +119,7 @@ class PCLSubscriber : public rclcpp::Node
       publisher_3d_ -> publish(output);
     }
 
-    void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
+    /*void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
     {           
       //Create camera model
       image_geometry::PinholeCameraModel camera_model = image_geometry::PinholeCameraModel();
@@ -130,7 +128,7 @@ class PCLSubscriber : public rclcpp::Node
       //Obtain intrinsic matrix
       K = camera_model.intrinsicMatrix();
 
-    }
+    }*/
 
     void on_timer(){
 
@@ -144,8 +142,8 @@ class PCLSubscriber : public rclcpp::Node
 
     }
 
-    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
+    //rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
+    //rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -198,7 +196,7 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
     float s = cloud_hsv->points[i].s*255.0;
     float v = cloud_hsv->points[i].v*255.0;
     
-    if((h >= 200.0 && s >= 190.0 && v >= 0.0 && h <= 220.0 && s <= 255.0 && v<= 255.0 )){
+    if((h >= 200.0 && s >= 190.0 && v >= 0.0 && h <= 230.0 && s <= 255.0 && v<= 255.0 )){
 
       pcl::PointXYZHSV point;
       point.x = cloud_hsv->points[i].x;
@@ -238,7 +236,6 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
   float max= 0.15;
   float advance = 0.008;
   
-
   for(float i = 0.0; i < max; i+= advance){
     for(float j = 0.0; j < max; j+= advance){
       for(float k = 0.0; k < max; k+= advance){
@@ -302,9 +299,9 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
     float y_center = coefficients->values[1];
     float z_center = coefficients->values[2];
 
-    std::cout <<"coeffx" << x_center << std::endl;
-    std::cout <<"cpeffy " <<  y_center << std::endl;
-     std::cout <<"cpeffz " <<  z_center << std::endl;
+    //std::cout <<"coeffx" << x_center << std::endl;
+    //std::cout <<"cpeffy " <<  y_center << std::endl;
+    // std::cout <<"cpeffz " <<  z_center << std::endl;
 
     print_cubes(in_cloud, x_center, y_center,z_center);
 
@@ -429,16 +426,16 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
   pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
 
-  auto rotation = extrinsicbf2of.transform.rotation;
+  //auto rotation = extrinsicbf2of.transform.rotation;
   
-  tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
+  //tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
   
-  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
-                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
-                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
+  //extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
+                                  //mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
+                                  //mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
   
 
-  out_pointcloud = in_pointcloud;
+ //out_pointcloud = in_pointcloud;
 
   //fix it 
   //lines_from_3D_to_2D(in_pointcloud);
