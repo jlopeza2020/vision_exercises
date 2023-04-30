@@ -167,12 +167,12 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
   pcl::PointCloud<pcl::PointXYZRGB> cloud_out;
   pcl::PointCloud<pcl::PointXYZHSV> cloud_hsv_filtered;
 
-  // Convertir de RGB a HSV
+  // Convert from RGB to HSV
   pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv(new pcl::PointCloud<pcl::PointXYZHSV>);
   PointCloudXYZRGB2XYZHSV(cloud_in, *cloud_hsv);
 
   
-  for(size_t i = 0; i < cloud_hsv->size(); ++i){
+  for(size_t i = 0; i < cloud_hsv->size(); i++){
     float h = cloud_hsv->points[i].h*(255.0/360.0);
     float s = cloud_hsv->points[i].s*255.0;
     float v = cloud_hsv->points[i].v*255.0;
@@ -190,7 +190,7 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
     }
   }
 
-  // Convertir de vuelta de HSV a RGB
+  // Convert from HSV to RGB
   PointCloudXYZHSV2XYZRGB(cloud_hsv_filtered, cloud_out);
 
   return cloud_out;
@@ -198,26 +198,28 @@ pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> clou
 
 
 pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZRGB> cloud){
+ 
   pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered;
 
   pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
   sor.setInputCloud(cloud.makeShared());
-  sor.setMeanK(50); // Establecer el número de vecinos a considerar para el cálculo de la desviación estándar
-  sor.setStddevMulThresh(1.0); // Establecer el umbral para eliminar los outliers
+  // Set the number of neighbours to calculate the std desviation
+  sor.setMeanK(50); 
+  //Set threshold to eliminate outliers
+  sor.setStddevMulThresh(1.0);
   sor.filter(cloud_filtered);
 
   return cloud_filtered;
 }
 
-// need to be reevised
 void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center, int r, int g, int b){
 
-  float max= 0.15;
-  float advance = 0.008;
+  float dim = 0.15;
+  float step = 0.008;
   
-  for(float i = 0.0; i < max; i+= advance){
-    for(float j = 0.0; j < max; j+= advance){
-      for(float k = 0.0; k < max; k+= advance){
+  for(float i = 0.0; i < dim; i+= step){
+    for(float j = 0.0; j < dim; j+= step){
+      for(float k = 0.0; k < dim; k+= step){
 
         pcl::PointXYZRGB point;
         point.x = x_center + i;
@@ -254,9 +256,7 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
 
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
-  int in = 0;
-
-  // While 30% the original cloud is still there
+  // While the original cloud is still there
   while (cloud_filtered->size () > 0.0)
   {
     // Segment the largest sphere component from the remaining cloud
@@ -284,23 +284,24 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
     extract.setNegative (true);
     extract.filter (*cloud_f);
     cloud_filtered.swap (cloud_f);
-    in++;
   }
 }
 
 void lines_from_3D_to_2D(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
 
+  
   int r = 255; 
   int g = 0; 
   int b = 0;
+
   for(int i = 3; i <= 8; i++){
 
+    //Left point
     geometry_msgs::msg::PointStamped point_in_left;
     point_in_left.header.frame_id = "base_footprint";
     point_in_left.point.x = i;
     point_in_left.point.y = 1.4;
     point_in_left.point.z = 0;
-
 
     geometry_msgs::msg::PointStamped point_out_left;
     point_out_left.header.frame_id = "head_front_camera_rgb_optical_frame";
@@ -308,17 +309,14 @@ void lines_from_3D_to_2D(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
     // Transform the point from base footprint to optical frame
     tf2::doTransform(point_in_left, point_out_left, extrinsicbf2of);
 
-    //print_cubes(cloud, point_out_left.point.x, point_out_left.point.y, point_out_left.point.z);
     print_cubes(cloud,point_out_left.point.x, point_out_left.point.y, point_out_left.point.z, r, g, b);
 
-
-
+    //Right point
     geometry_msgs::msg::PointStamped point_in_right;
     point_in_right.header.frame_id = "base_footprint";
     point_in_right.point.x = i;
     point_in_right.point.y = -1.4;
     point_in_right.point.z = 0;
-
 
     geometry_msgs::msg::PointStamped point_out_right;
     point_out_right.header.frame_id = "head_front_camera_rgb_optical_frame";
@@ -326,16 +324,14 @@ void lines_from_3D_to_2D(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
     // Transform the point from base footprint to optical frame
     tf2::doTransform(point_in_right, point_out_right, extrinsicbf2of);
 
-    //print_cubes(cloud, point_out_right.point.x, point_out_right.point.y, point_out_right.point.z);
     print_cubes(cloud, point_out_right.point.x, point_out_right.point.y, point_out_right.point.z, r, g, b);
     r -= 40;
-    g += 20;
-    b += 30;
+    g += 40;
+    b += 40;
 
   }
 }
 
-//modify point cloud
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   // Create pointclouds
