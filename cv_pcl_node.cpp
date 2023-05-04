@@ -150,7 +150,7 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
 
   //Get the label for the class name and its confidence
   std::string label = cv::format("%.2f", conf);
-  if (!classes.empty()) {
+  if (!classes.empty() && classId == 0) {
     CV_Assert(classId < (int)classes.size());
     label = classes[classId] + ":" + label;
   }
@@ -162,7 +162,7 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
   rectangle(
     frame, cv::Point(left, top - round(1.5 * labelSize.height)),
     cv::Point(left + round(1.5 * labelSize.width), top + baseLine), cv::Scalar(255, 255, 255), cv::FILLED);
-  putText(frame, label, cv::Point(left, top), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0), 1);
+  cv::putText(frame, label, cv::Point(left, top), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0), 1);
 }
 
 // Remove the bounding boxes with low confidence using non-maxima suppression
@@ -265,16 +265,16 @@ void detect_person(cv::Mat image){
   // Load names of classes
   std::string classesFile = "cfg/coco.names";
   std::ifstream ifs(classesFile.c_str());
-  std::string line;
+  //std::string line;
   //while (getline(ifs, line)) {classes.push_back(line);}
-  classes.push_back(line);
+  classes.push_back("person"); // global vector
 
   //std::string device = "cpu";
   //device = parser.get<std::string>("device");
 
   // Give the configuration and weight files for the model
-  std::string modelConfiguration = "cfg/yolov3.cfg";
-  std::string modelWeights = "cfg/yolov3.weights";
+  std::string modelConfiguration = "/home/juloau/Desktop/vision/ros2_computer_vision/src/computer_vision/src/cfg/yolov3.cfg";
+  std::string modelWeights = "/home/juloau/Desktop/vision/ros2_computer_vision/src/computer_vision/src/cfg/yolov3.weights";
 
   // Load the network
   cv::dnn::Net net = cv::dnn::readNetFromDarknet(modelConfiguration, modelWeights);
@@ -370,7 +370,7 @@ void detect_person(cv::Mat image){
     double freq = cv::getTickFrequency() / 1000;
     double t = net.getPerfProfile(layersTimes) / freq;
     std::string label = cv::format("Inference time for a frame : %.2f ms", t);
-    putText(frame, label, cv::Point(0, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
+    cv::putText(frame, label, cv::Point(0, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 
     // Write the frame with the detection boxes
     //cv::Mat detectedFrame;
