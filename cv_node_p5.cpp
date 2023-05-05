@@ -246,6 +246,7 @@ void point_from_2D_to_3D(cv::Mat out_image, cv::Point clicked_point, int opt){
 
   // due to normalization it is necessary to multiply by a factor
   // to get the most approximate value to option 1
+  // MUST ADD DISTANCE FROMC CAMERA TO BASEFOOTPRINT
   if (opt == 2){
     z_val = depth_image.at<float>(clicked_point)*7.97;
   }else{
@@ -273,9 +274,19 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   cv::Mat out_image;
   // get extrinsic matrix 
-  extrinsic_matrixbf2of = cv::Matx34f( 0, -1, 0, extrinsicbf2of.transform.translation.x,
-                                  0, 0, -1, extrinsicbf2of.transform.translation.y,
-                                  1, 0, 0, extrinsicbf2of.transform.translation.z);
+  //extrinsic_matrixbf2of = cv::Matx34f( 0, -1, 0, extrinsicbf2of.transform.translation.x,
+  //                                0, 0, -1, extrinsicbf2of.transform.translation.y,
+  //                                1, 0, 0, extrinsicbf2of.transform.translation.z);
+  
+  auto rotation = extrinsicbf2of.transform.rotation;
+  
+  tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
+  
+  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
+                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
+                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
+  
+
   key = cv::pollKey();
 
   if(print_once){
@@ -318,6 +329,8 @@ cv::Mat image_processing(const cv::Mat in_image)
         point_from_2D_to_3D(out_image, points[i], value_choose_opt);
       }
 
+      //std::cout << "extrinisc" << extrinsic_matrixbf2of << std::endl;
+
       break;
 
     case 2:
@@ -332,6 +345,9 @@ cv::Mat image_processing(const cv::Mat in_image)
           }
         }
       }
+
+            //std::cout << "trial" << trial << std::endl;
+
 
       //enhaced image
       cv::normalize(depth_image, depth_image, 0, 1, cv::NORM_MINMAX, CV_32FC1);

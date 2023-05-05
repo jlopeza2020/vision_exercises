@@ -45,8 +45,46 @@ Partes implementadas:
 #include <opencv2/highgui.hpp>
 
 
+
+#include <pcl/point_cloud.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/passthrough.h>
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+
+
+#include <vector>
+#include <pcl/features/normal_3d.h>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/visualization/cloud_viewer.h>
+
+#include <pcl/ModelCoefficients.h>
+#include <pcl/sample_consensus/method_types.h>
+
+#include "image_geometry/pinhole_camera_model.h"
+
+
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "geometry_msgs/msg/transform_stamped.h"
+#include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
+
+
+using namespace std::chrono_literals;
+//pcl global vars
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
 cv::Mat image_processing(const cv::Mat in_image);
+geometry_msgs::msg::TransformStamped extrinsicbf2of; 
+
+//image global vars
+cv::Matx33f K; //intrinsic values 
+cv::Matx34f extrinsic_matrixbf2of;
+//cv::Mat depth_image;
 
 int value_choose_opt;
 int value_distance;
@@ -69,12 +107,26 @@ class ComputerVisionSubscriber : public rclcpp::Node
     {
       auto qos = rclcpp::QoS( rclcpp::QoSInitialization( RMW_QOS_POLICY_HISTORY_KEEP_LAST, 5 ));
       qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
+   
 
       subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
       "/head_front_camera/rgb/image_raw", qos, std::bind(&ComputerVisionSubscriber::topic_callback, this, std::placeholders::_1));
+
+      subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+      "/head_front_camera/rgb/camera_info", qos, std::bind(&ComputerVisionSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
-      publisher_ = this->create_publisher<sensor_msgs::msg::Image>(
-      "cv_image", qos);
+      //subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
+      //"/head_front_camera/depth_registered/image_raw", qos, std::bind(&ComputerVisionSubscriber::topic_callback_depth, this, std::placeholders::_1));
+
+      // transform listener inialization
+      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+      // Call on_timer function every 500ms
+      timer_ = this->create_wall_timer(500ms, std::bind(&ComputerVisionSubscriber::on_timer, this));
+
+
+      publisher_ = this->create_publisher<sensor_msgs::msg::Image>("cv_image", qos);
     }
 
   private:
@@ -89,22 +141,71 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
       // Convert OpenCV Image to ROS Image
       cv_bridge::CvImage img_bridge = cv_bridge::CvImage(msg->header, sensor_msgs::image_encodings::BGR8, cv_image);
-      sensor_msgs::msg::Image out_image; // >> message to be sent
+      sensor_msgs::msg::Image out_image; // message to be sent
       img_bridge.toImageMsg(out_image); // from cv_bridge to sensor_msgs::Image
 
       // Publish the data
       publisher_ -> publish(out_image);
+
+    }
+
+    void topic_callback_in_params(const sensor_msgs::msg::CameraInfo::SharedPtr msg) const
+    {           
+      // create camera model
+      image_geometry::PinholeCameraModel camera_model = image_geometry::PinholeCameraModel();
+      camera_model.fromCameraInfo(msg);
+
+      //Obtain intrinsic matrix
+      K = camera_model.intrinsicMatrix();
+
+    }
+
+    /*void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
+    {     
+    
+      cv_bridge::CvImagePtr cv_ptr;
+      try
+      {
+        cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
+      }
+      catch (cv_bridge::Exception &e)
+      {
+        RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
+        return;
+      }
+
+      depth_image = cv_ptr->image;
+    }*/
+
+    void on_timer(){
+
+      try {
+        // goes from base_footprint to optical frame 
+        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+      } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        return;
+      }
+
     }
 
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
+    //rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
+
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp::TimerBase::SharedPtr timer_;
+
 };
+
 
 class PCLSubscriber : public rclcpp::Node
 {
   public:
     PCLSubscriber()
-    : Node("pcl_subscriber")
+    : Node("opencv_subscriber")
     {
       auto qos = rclcpp::QoS( rclcpp::QoSInitialization( RMW_QOS_POLICY_HISTORY_KEEP_LAST, 5 ));
       qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
@@ -112,17 +213,27 @@ class PCLSubscriber : public rclcpp::Node
       subscription_3d_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/head_front_camera/depth_registered/points", qos, std::bind(&PCLSubscriber::topic_callback_3d, this, std::placeholders::_1));
     
+      // transform listener inialization
+      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+      // Call on_timer function every 500ms
+      timer_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
+      
       publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "pcl_points", qos);
     }
 
   private:
+
     void topic_callback_3d(const sensor_msgs::msg::PointCloud2::SharedPtr msg) const
     {    
+      
       // Convert to PCL data type
       pcl::PointCloud<pcl::PointXYZRGB> point_cloud;
       pcl::fromROSMsg(*msg, point_cloud);     
 
+      // PCL Processing
       pcl::PointCloud<pcl::PointXYZRGB> pcl_pointcloud = pcl_processing(point_cloud);
       
       // Convert to ROS data type
@@ -133,6 +244,22 @@ class PCLSubscriber : public rclcpp::Node
       // Publish the data
       publisher_3d_ -> publish(output);
     }
+
+    void on_timer(){
+
+      try {
+        // goes from base_footprint to optical frame 
+        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+      } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
+        return;
+      }
+
+    }
+
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
@@ -279,6 +406,31 @@ void detect_person(cv::Mat image){
   cv::putText(frame, label, cv::Point(0, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 }
 
+void lines_from_3D_to_2D_image(cv::Mat out_image){
+
+  if(value_distance >= 3){
+    for(int i = 3; i <= value_distance; i++){
+
+      cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
+      cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+
+      cv::Mat res = K*extrinsic_matrixbf2of*point_req1;
+      cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
+
+      cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)), res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
+      cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+      cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+      cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+
+      cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
+
+      cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
+
+    }
+  }
+}
+
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   // Create output image
@@ -294,6 +446,14 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   int max_value_distance = 8;
   int init_value_distance = 3;
+
+  auto rotation = extrinsicbf2of.transform.rotation;
+  
+  tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
+  
+  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
+                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
+                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
 
 
   key = cv::pollKey();
@@ -317,18 +477,27 @@ cv::Mat image_processing(const cv::Mat in_image)
   switch(value_choose_opt) {
 
     case 0:
-      //std::cout << "0: Original in cvMat and PCL\n" << std::endl;
+      std::cout << "0: Original in cvMat and PCL\n" << std::endl;
+      
+      // if detect_person
+      // make function
+      //out_image = in_image;
+      
+      break;
+
+    case 1:
+      //std::cout << "1: Detect person\n" << std::endl;
       detect_person(out_image);
       if (detected){
         std::cout << "Hay Persona\n" << std::endl;
+        lines_from_3D_to_2D_image(out_image);
+
+
       }
       // if detect_person
       // make function
       //out_image = in_image;
-      break;
-
-    case 1:
-      std::cout << "1: Detect person\n" << std::endl;
+      
       //out_image = green_tags_dt(in_image, value_hough, false);
 
       break;
@@ -336,8 +505,10 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 2:
       std::cout << "2: Extras\n" << std::endl;
       //out_image = blue_balls_dt(in_image, false);
-
+       //out_image = in_image;
+      
       break;
+    detected = false;
 
   }
     
@@ -349,10 +520,118 @@ cv::Mat image_processing(const cv::Mat in_image)
 /**
   TO-DO
 */
+void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center, int r, int g, int b){
+
+  float dim = 0.15;
+  float step = 0.008;
+  
+  for(float i = 0.0; i < dim; i+= step){
+    for(float j = 0.0; j < dim; j+= step){
+      for(float k = 0.0; k < dim; k+= step){
+
+        pcl::PointXYZRGB point;
+        point.x = x_center + i;
+        point.y = y_center + j;
+        point.z = z_center + k;
+        point.r = r;
+        point.g = g;
+        point.b = b;
+        cloud.push_back(point);
+
+      }
+    }
+  }
+}
+
+void lines_from_3D_to_2D_pcl(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
+
+  
+  int r = 255; 
+  int g = 0; 
+  int b = 0;
+
+  if (value_distance >= 3){
+
+    for(int i = 3; i <= value_distance; i++){
+
+      //Left point
+      geometry_msgs::msg::PointStamped point_in_left;
+      point_in_left.header.frame_id = "base_footprint";
+      point_in_left.point.x = i;
+      point_in_left.point.y = 1.4;
+      point_in_left.point.z = 0;
+
+      geometry_msgs::msg::PointStamped point_out_left;
+      point_out_left.header.frame_id = "head_front_camera_rgb_optical_frame";
+
+      // Transform the point from base footprint to optical frame
+      tf2::doTransform(point_in_left, point_out_left, extrinsicbf2of);
+
+      print_cubes(cloud,point_out_left.point.x, point_out_left.point.y, point_out_left.point.z, r, g, b);
+
+      //Right point
+      geometry_msgs::msg::PointStamped point_in_right;
+      point_in_right.header.frame_id = "base_footprint";
+      point_in_right.point.x = i;
+      point_in_right.point.y = -1.4;
+      point_in_right.point.z = 0;
+
+      geometry_msgs::msg::PointStamped point_out_right;
+      point_out_right.header.frame_id = "head_front_camera_rgb_optical_frame";
+
+      // Transform the point from base footprint to optical frame
+      tf2::doTransform(point_in_right, point_out_right, extrinsicbf2of);
+
+      print_cubes(cloud, point_out_right.point.x, point_out_right.point.y, point_out_right.point.z, r, g, b);
+      r -= 40;
+      g += 40;
+      b += 40;
+
+    }
+  }
+}
+
+
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
   out_pointcloud = in_pointcloud;
+
+
+  switch(value_choose_opt) {
+
+    case 0:
+      //out_pointcloud = in_pointcloud;
+      // if detect_person
+      // make function
+      
+      break;
+
+    case 1:
+      //std::cout << "1: Detect person\n" << std::endl;
+      
+      //out_pointcloud = in_pointcloud;
+      if (detected){
+        std::cout << "Hay Persona\n" << std::endl;
+        lines_from_3D_to_2D_pcl(out_pointcloud);
+
+      }
+      // if detect_person
+      // make function
+      //out_pointcloud = in_pointcloud;
+      
+      //out_image = green_tags_dt(in_image, value_hough, false);
+
+      break;
+
+    case 2:
+       //out_pointcloud = in_pointcloud;
+      
+      break;
+
+  }
+    
+
   return out_pointcloud;
 }
 
