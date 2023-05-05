@@ -518,9 +518,6 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
 
   cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
   
-  // reduce el tamaño de la imagen
-  //cv::resize(in_image, in_image, cv::Size(), 0.5, 0.5);
-
   // suaviza la imagen
   cv::GaussianBlur(in_image, in_image, cv::Size(3, 3), 0, 0);
 
@@ -541,44 +538,33 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   // reduce el valor de dp para reducir la cantidad de cálculos necesarios
   // ajusta el valor de minDist para reducir la distancia mínima entre los centros de los círculos detectados
   HoughCircles(
-    out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 100, 30, 10, 100
+    out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 100, 40, 40, 100
   );
 
   // crea un clon de la imagen de entrada
   cpy_in_img = in_image.clone();
 
-  //for (size_t i = 0; i < circles.size(); i++) {
-  cv::Vec3i c = circles[0];
+  /*cv::Vec3i c = circles[0];
   cv::Point center = cv::Point(c[0], c[1]);
   // centro del círculo
   cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
   // contorno del círculo
   int radius = c[2];
-  cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
-  //}
+  cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);*/
+
+  for (size_t i = 0; i < circles.size(); i++) {
+    cv::Vec3i c = circles[i];
+    cv::Point center = cv::Point(c[0], c[1]);
+    // circle center
+    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+    // circle outline
+    int radius = c[2];
+    cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
+  }
 
   return cpy_in_img;
 }
 
-
-cv::Mat get_hsv(cv::Mat in_image, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
-
-  cv::Mat img_inHSV, green_dt;
-
-
-  // convert image in hsv 
-  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-  // Detect the object in green
-  cv::inRange(img_inHSV, cv::Scalar(min_h, min_s, min_v), cv::Scalar(max_h,max_s,max_v), green_dt);
-
-  // Edge detection
-  //Canny(green_dt, out_img, 50, 200, 3);
-
-  //std::vector<cv::Vec2f> lines;   // will hold the results of the detection (rho, theta)
-  //HoughLines(out_img, lines, 1, CV_PI / 180, value_hough, 0, 0);   // runs the actual detection
-
-  return green_dt;
-}
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -590,14 +576,6 @@ cv::Mat image_processing(const cv::Mat in_image)
 
   int max_value_distance = 8;
   int init_value_distance = 3;
-
-  /*int max_h = 360;
-  int max_s =  255;
-  int max_v =  255;
-  int min_h = 255;
-  int min_s =  255;
-  int min_v =  255;
-  int zero = 0;*/
 
   auto rotation = extrinsicbf2ofimg.transform.rotation;
   
@@ -617,20 +595,6 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::createTrackbar("Distance", "PRACTICA_FINAL", nullptr, max_value_distance, 0);
     cv::setTrackbarPos("Distance", "PRACTICA_FINAL", init_value_distance);
 
-    
-    /*cv::createTrackbar("max H", "PRACTICA_FINAL", nullptr, max_h, 0);
-    cv::setTrackbarPos("max H", "PRACTICA_FINAL", zero);
-    cv::createTrackbar("max S", "PRACTICA_FINAL", nullptr, max_s, 0);
-    cv::setTrackbarPos("max S", "PRACTICA_FINAL", zero);
-    cv::createTrackbar("max V", "PRACTICA_FINAL", nullptr, max_v, 0);
-    cv::setTrackbarPos("max V", "PRACTICA_FINAL", zero);
-    cv::createTrackbar("min H", "PRACTICA_FINAL", nullptr, min_h, 0);
-    cv::setTrackbarPos("min H", "PRACTICA_FINAL", zero);
-    cv::createTrackbar("min S", "PRACTICA_FINAL", nullptr, min_s, 0);
-    cv::setTrackbarPos("min S", "PRACTICA_FINAL", zero);
-    cv::createTrackbar("min V", "PRACTICA_FINAL", nullptr, min_v, 0);
-    cv::setTrackbarPos("min V", "PRACTICA_FINAL", zero);*/
-
     print_once = false;
   }
 
@@ -638,13 +602,7 @@ cv::Mat image_processing(const cv::Mat in_image)
   value_choose_opt = cv::getTrackbarPos("Option", "PRACTICA_FINAL");
   value_distance = cv::getTrackbarPos("Distance", "PRACTICA_FINAL");
 
-  /*int gt_max_h = cv::getTrackbarPos("max H", "PRACTICA_FINAL");
-  int gt_max_s = cv::getTrackbarPos("max S", "PRACTICA_FINAL");
-  int gt_max_v = cv::getTrackbarPos("max V", "PRACTICA_FINAL");
-  int gt_min_h = cv::getTrackbarPos("min H", "PRACTICA_FINAL");
-  int gt_min_s = cv::getTrackbarPos("min S", "PRACTICA_FINAL");
-  int gt_min_v = cv::getTrackbarPos("min V", "PRACTICA_FINAL");*/
-
+  
   //out_image = in_image;
 
   //aux_image = out_image;
@@ -666,7 +624,7 @@ cv::Mat image_processing(const cv::Mat in_image)
       //if (detected){
       //std::cout << "Hay Persona\n" << std::endl;
       //out_image = purple_balls_dt(in_image);
-      out_image = in_image;
+      out_image = purple_balls_dt(in_image);
       lines_from_3D_to_2D_image(out_image);
       
 
@@ -688,9 +646,10 @@ cv::Mat image_processing(const cv::Mat in_image)
 
     case 2:
       std::cout << "2: Extras\n" << std::endl;
+      out_image = in_image;
       //out_image = blue_balls_dt(in_image, false);
       //out_image = in_image;
-      out_image = purple_balls_dt(in_image);
+      //out_image = purple_balls_dt(in_image);
       //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
       
       break;
