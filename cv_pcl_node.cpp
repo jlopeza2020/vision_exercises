@@ -79,6 +79,7 @@ using namespace std::chrono_literals;
 //pcl global vars
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
 cv::Mat image_processing(const cv::Mat in_image);
+geometry_msgs::msg::TransformStamped extrinsicbf2ofimg; 
 geometry_msgs::msg::TransformStamped extrinsicbf2of; 
 
 //image global vars
@@ -98,6 +99,12 @@ float nmsThreshold = 0.4;  // Non-maximum suppression threshold
 int inpWidth = 416;  // Width of network's input image
 int inpHeight = 416; // Height of network's input image
 std::vector<std::string> classes;
+
+//cv::Mat aux_image;
+
+//float x_center_pcl;
+//float y_center_pcl;
+//float z_center_pcl;
 
 class ComputerVisionSubscriber : public rclcpp::Node
 {
@@ -181,7 +188,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
       try {
         // goes from base_footprint to optical frame 
-        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+        extrinsicbf2ofimg = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
       } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
         return;
@@ -278,7 +285,6 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
 
   //Get the label for the class name and its confidence
   std::string label = cv::format("%.2f", conf);
-  //if(classId == 0){
   if (!classes.empty()) {
     CV_Assert(classId < (int)classes.size());
     label = classes[classId] + ":" + label;
@@ -292,7 +298,6 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
     frame, cv::Point(left, top - round(1.5 * labelSize.height)),
   cv::Point(left + round(1.5 * labelSize.width), top + baseLine), cv::Scalar(255, 255, 255), cv::FILLED);
   cv::putText(frame, label, cv::Point(left, top), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0), 1);
-  //}
 }
 
 // Remove the bounding boxes with low confidence using non-maxima suppression
@@ -327,24 +332,21 @@ void postprocess(cv::Mat & frame, const std::vector<cv::Mat> & outs)
           boxes.push_back(cv::Rect(left, top, width, height));
           detected = true;
         }
-        //classIds.push_back(classIdPoint.x);
-        //confidences.push_back((float)confidence);
-        //boxes.push_back(cv::Rect(left, top, width, height));
       }
     }
   }
 
   // Perform non maximum suppression to eliminate redundant overlapping boxes with
   // lower confidences
-  std::vector<int> indices;
-  cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
-  for (size_t i = 0; i < indices.size(); ++i) {
-    int idx = indices[i];
-    cv::Rect box = boxes[idx];
-    drawPred(
-      classIds[idx], confidences[idx], box.x, box.y,
-      box.x + box.width, box.y + box.height, frame);
-  }
+  //std::vector<int> indices;
+  //cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
+  //for (size_t i = 0; i < indices.size(); ++i) {
+    //int idx = indices[i];
+    //cv::Rect box = boxes[idx];
+    //drawPred(
+    //  classIds[idx], confidences[idx], box.x, box.y,
+    //  box.x + box.width, box.y + box.height, frame);
+  //}
 }
 
 
@@ -408,7 +410,12 @@ void detect_person(cv::Mat image){
 
 void lines_from_3D_to_2D_image(cv::Mat out_image){
 
+  int r = 255; 
+  int g = 0; 
+  int b = 0;
+
   if(value_distance >= 3){
+
     for(int i = 3; i <= value_distance; i++){
 
       cv::Mat point_req1 = (cv::Mat_<float>(4,1) << i, 1.4, 0.0, 1.0);
@@ -418,27 +425,164 @@ void lines_from_3D_to_2D_image(cv::Mat out_image){
       cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
 
       cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)), res.at<float>(1, 0)/abs(res.at<float>(2, 0)));
-      cv::circle(out_image,center, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+      cv::circle(out_image,center, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
 
       cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
-      cv::circle(out_image,center2, 3, cv::Scalar(0, 0, 255), 2); // draw the circle on the image
+      cv::circle(out_image,center2, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
 
-      cv::line(out_image, center, center2, cv::Scalar(0, 0, 255), 2);
+      cv::line(out_image, center, center2, cv::Scalar(b, g, r), 2);
 
-      cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 0, 255), 1);
+      cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(b, g, r), 1);
+
+      r -= 40;
+      g += 40;
+      b += 40;
 
     }
   }
 }
 
+void print_3D_to_2D_sphere_centers(cv::Mat out_image, float x, float y, float z){
+
+  int r = 0; 
+  int g = 0; 
+  int b = 255;
+
+  //if(value_distance >= 3){
+
+  //  for(int i = 3; i <= value_distance; i++){
+
+  cv::Mat point_req = (cv::Mat_<float>(4,1) << x, y, z, 1.0);
+  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+
+  cv::Mat res = K*extrinsic_matrixbf2of*point_req;
+  //cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
+
+  cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)) + K(1,2), res.at<float>(1, 0)/abs(res.at<float>(2, 0)) + K(2,2));
+  cv::circle(out_image,center, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
+
+  //cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
+  //cv::circle(out_image,center2, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
+
+  //cv::line(out_image, center, center2, cv::Scalar(b, g, r), 2);
+
+  //cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(b, g, r), 1);
+
+      //r -= 40;
+      //g += 40;
+      //b += 40;
+
+    //}
+  //}
+
+  
+}
+
+// usar moments y contors 
+/*cv::Mat purple_balls_dt(cv::Mat in_image){
+
+  cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
+  
+  // create a clone of input image
+  cpy_in_img = in_image.clone();
+
+  // convert image in hsv 
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+  // Detect the object in blue
+  cv::inRange(img_inHSV, cv::Scalar(135,217,19) ,cv::Scalar(230, 255, 255), purple_dt);
+
+  // Edge detection
+  Canny(purple_dt, out_img, 50, 200, 3);
+
+  std::vector<cv::Vec3f> circles;
+  HoughCircles(
+    out_img, circles, cv::HOUGH_GRADIENT, 1,
+    out_img.rows / 160,             // change this value to detect circles with different distances to each other
+    200, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
+  );
+
+  for (size_t i = 0; i < circles.size(); i++) {
+    cv::Vec3i c = circles[i];
+    cv::Point center = cv::Point(c[0], c[1]);
+    // circle center
+    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 100, 100), 3, cv::LINE_AA);
+    // circle outline
+    int radius = c[2];
+    cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 255), 3, cv::LINE_AA);
+  }
+
+  return cpy_in_img;
+}*/
+
+cv::Mat purple_balls_dt(cv::Mat in_image){
+
+  cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
+  
+  // reduce el tamaño de la imagen
+  //cv::resize(in_image, in_image, cv::Size(), 0.5, 0.5);
+
+  // suaviza la imagen
+  cv::GaussianBlur(in_image, in_image, cv::Size(3, 3), 0, 0);
+
+  // convertir imagen en hsv 
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+
+  // detección del objeto morado
+  cv::inRange(img_inHSV, cv::Scalar(135, 217, 19), cv::Scalar(230, 255, 255), purple_dt);
+
+  // umbralización adaptativa
+  cv::adaptiveThreshold(purple_dt, purple_dt, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 11, 2);
+
+  // detección de bordes
+  Canny(purple_dt, out_img, 50, 200, 3);
+
+  std::vector<cv::Vec3f> circles;
+  
+  // reduce el valor de dp para reducir la cantidad de cálculos necesarios
+  // ajusta el valor de minDist para reducir la distancia mínima entre los centros de los círculos detectados
+  HoughCircles(
+    out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 100, 30, 10, 100
+  );
+
+  // crea un clon de la imagen de entrada
+  cpy_in_img = in_image.clone();
+
+  //for (size_t i = 0; i < circles.size(); i++) {
+  cv::Vec3i c = circles[0];
+  cv::Point center = cv::Point(c[0], c[1]);
+  // centro del círculo
+  cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+  // contorno del círculo
+  int radius = c[2];
+  cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
+  //}
+
+  return cpy_in_img;
+}
+
+
+cv::Mat get_hsv(cv::Mat in_image, int min_h, int min_s ,int min_v, int max_h, int max_s, int max_v){
+
+  cv::Mat img_inHSV, green_dt;
+
+
+  // convert image in hsv 
+  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
+  // Detect the object in green
+  cv::inRange(img_inHSV, cv::Scalar(min_h, min_s, min_v), cv::Scalar(max_h,max_s,max_v), green_dt);
+
+  // Edge detection
+  //Canny(green_dt, out_img, 50, 200, 3);
+
+  //std::vector<cv::Vec2f> lines;   // will hold the results of the detection (rho, theta)
+  //HoughLines(out_img, lines, 1, CV_PI / 180, value_hough, 0, 0);   // runs the actual detection
+
+  return green_dt;
+}
+
 cv::Mat image_processing(const cv::Mat in_image) 
 {
   // Create output image
-  //cv::Mat out_image = in_image;
-
-  // You must to return a 3-channels image to show it in ROS, so do it with 1-channel images
-  //cv::cvtColor(out_image, out_image, cv::COLOR_GRAY2BGR);
-  //return out_image;
   cv::Mat out_image;
 
   int max_value_choose_opt = 2;
@@ -447,13 +591,21 @@ cv::Mat image_processing(const cv::Mat in_image)
   int max_value_distance = 8;
   int init_value_distance = 3;
 
-  auto rotation = extrinsicbf2of.transform.rotation;
+  /*int max_h = 360;
+  int max_s =  255;
+  int max_v =  255;
+  int min_h = 255;
+  int min_s =  255;
+  int min_v =  255;
+  int zero = 0;*/
+
+  auto rotation = extrinsicbf2ofimg.transform.rotation;
   
   tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
   
-  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2of.transform.translation.x,
-                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2of.transform.translation.y,
-                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2of.transform.translation.z);
+  extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2ofimg.transform.translation.x,
+                                  mat[1][0], mat[1][1], mat[1][2], extrinsicbf2ofimg.transform.translation.y,
+                                  mat[2][0], mat[2][1], mat[2][2], extrinsicbf2ofimg.transform.translation.z);
 
 
   key = cv::pollKey();
@@ -465,6 +617,20 @@ cv::Mat image_processing(const cv::Mat in_image)
     cv::createTrackbar("Distance", "PRACTICA_FINAL", nullptr, max_value_distance, 0);
     cv::setTrackbarPos("Distance", "PRACTICA_FINAL", init_value_distance);
 
+    
+    /*cv::createTrackbar("max H", "PRACTICA_FINAL", nullptr, max_h, 0);
+    cv::setTrackbarPos("max H", "PRACTICA_FINAL", zero);
+    cv::createTrackbar("max S", "PRACTICA_FINAL", nullptr, max_s, 0);
+    cv::setTrackbarPos("max S", "PRACTICA_FINAL", zero);
+    cv::createTrackbar("max V", "PRACTICA_FINAL", nullptr, max_v, 0);
+    cv::setTrackbarPos("max V", "PRACTICA_FINAL", zero);
+    cv::createTrackbar("min H", "PRACTICA_FINAL", nullptr, min_h, 0);
+    cv::setTrackbarPos("min H", "PRACTICA_FINAL", zero);
+    cv::createTrackbar("min S", "PRACTICA_FINAL", nullptr, min_s, 0);
+    cv::setTrackbarPos("min S", "PRACTICA_FINAL", zero);
+    cv::createTrackbar("min V", "PRACTICA_FINAL", nullptr, min_v, 0);
+    cv::setTrackbarPos("min V", "PRACTICA_FINAL", zero);*/
+
     print_once = false;
   }
 
@@ -472,28 +638,46 @@ cv::Mat image_processing(const cv::Mat in_image)
   value_choose_opt = cv::getTrackbarPos("Option", "PRACTICA_FINAL");
   value_distance = cv::getTrackbarPos("Distance", "PRACTICA_FINAL");
 
-  out_image = in_image;
+  /*int gt_max_h = cv::getTrackbarPos("max H", "PRACTICA_FINAL");
+  int gt_max_s = cv::getTrackbarPos("max S", "PRACTICA_FINAL");
+  int gt_max_v = cv::getTrackbarPos("max V", "PRACTICA_FINAL");
+  int gt_min_h = cv::getTrackbarPos("min H", "PRACTICA_FINAL");
+  int gt_min_s = cv::getTrackbarPos("min S", "PRACTICA_FINAL");
+  int gt_min_v = cv::getTrackbarPos("min V", "PRACTICA_FINAL");*/
+
+  //out_image = in_image;
+
+  //aux_image = out_image;
 
   switch(value_choose_opt) {
 
     case 0:
-      std::cout << "0: Original in cvMat and PCL\n" << std::endl;
+      //std::cout << "0: Original in cvMat and PCL\n" << std::endl;
       
       // if detect_person
       // make function
-      //out_image = in_image;
+      out_image = in_image;
       
       break;
 
     case 1:
       //std::cout << "1: Detect person\n" << std::endl;
-      detect_person(out_image);
-      if (detected){
-        std::cout << "Hay Persona\n" << std::endl;
-        lines_from_3D_to_2D_image(out_image);
+      //detect_person(out_image);
+      //if (detected){
+      //std::cout << "Hay Persona\n" << std::endl;
+      //out_image = purple_balls_dt(in_image);
+      out_image = in_image;
+      lines_from_3D_to_2D_image(out_image);
+      
+
+      //lines_from_3D_to_2D_image(aux_image);
 
 
-      }
+      //print_3D_to_2D_sphere_centers(out_image);
+
+
+      //}
+
       // if detect_person
       // make function
       //out_image = in_image;
@@ -505,7 +689,9 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 2:
       std::cout << "2: Extras\n" << std::endl;
       //out_image = blue_balls_dt(in_image, false);
-       //out_image = in_image;
+      //out_image = in_image;
+      out_image = purple_balls_dt(in_image);
+      //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
       
       break;
     detected = false;
@@ -520,6 +706,81 @@ cv::Mat image_processing(const cv::Mat in_image)
 /**
   TO-DO
 */
+
+//function from library did not work
+void PointCloudXYZRGB2XYZHSV(pcl::PointCloud<pcl::PointXYZRGB>& in, pcl::PointCloud<pcl::PointXYZHSV>& out)
+{
+  out.width = in.width;
+  out.height = in.height;
+  for (const auto &point : in){
+    pcl::PointXYZHSV p;
+    pcl::PointXYZRGBtoXYZHSV(point, p);
+    out.push_back(p);
+  }
+}
+
+//function from library did not work
+void PointCloudXYZHSV2XYZRGB(pcl::PointCloud<pcl::PointXYZHSV>& in, pcl::PointCloud<pcl::PointXYZRGB>& out)
+{
+  out.width = in.width;
+  out.height = in.height;
+  for (const auto &point : in){
+    pcl::PointXYZRGB p;
+    pcl::PointXYZHSVtoXYZRGB(point, p);
+    out.push_back(p);
+  }
+}
+ 
+pcl::PointCloud<pcl::PointXYZRGB> get_hsv(pcl::PointCloud<pcl::PointXYZRGB> cloud_in){
+
+  pcl::PointCloud<pcl::PointXYZRGB> cloud_out;
+  pcl::PointCloud<pcl::PointXYZHSV> cloud_hsv_filtered;
+
+  // Convert from RGB to HSV
+  pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_hsv(new pcl::PointCloud<pcl::PointXYZHSV>);
+  PointCloudXYZRGB2XYZHSV(cloud_in, *cloud_hsv);
+
+  
+  for(size_t i = 0; i < cloud_hsv->size(); i++){
+    float h = cloud_hsv->points[i].h*(255.0/360.0);
+    float s = cloud_hsv->points[i].s*255.0;
+    float v = cloud_hsv->points[i].v*255.0;
+    
+    if((h >= 200.0 && s >= 190.0 && v >= 0.0 && h <= 230.0 && s <= 255.0 && v<= 255.0 )){
+
+      pcl::PointXYZHSV point;
+      point.x = cloud_hsv->points[i].x;
+      point.y = cloud_hsv->points[i].y;
+      point.z = cloud_hsv->points[i].z;
+      point.h = cloud_hsv->points[i].h;
+      point.s = cloud_hsv->points[i].s;
+      point.v = cloud_hsv->points[i].v;
+      cloud_hsv_filtered.push_back(point);
+    }
+  }
+
+  // Convert from HSV to RGB
+  PointCloudXYZHSV2XYZRGB(cloud_hsv_filtered, cloud_out);
+
+  return cloud_out;
+}
+
+
+pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZRGB> cloud){
+ 
+  pcl::PointCloud<pcl::PointXYZRGB> cloud_filtered;
+
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
+  sor.setInputCloud(cloud.makeShared());
+  // Set the number of neighbours to calculate the std desviation
+  sor.setMeanK(50); 
+  //Set threshold to eliminate outliers
+  sor.setStddevMulThresh(1.0);
+  sor.filter(cloud_filtered);
+
+  return cloud_filtered;
+}
+
 void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center, int r, int g, int b){
 
   float dim = 0.15;
@@ -540,6 +801,60 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
 
       }
     }
+  }
+}
+
+void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
+
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_p (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZRGB>);
+  
+  pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
+  pcl::PointIndices::Ptr inliers (new pcl::PointIndices());
+  // Create the segmentation object
+  pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+  // Optional
+  seg.setOptimizeCoefficients (true);
+  // Mandatory
+  seg.setModelType (pcl::SACMODEL_SPHERE);
+  seg.setMethodType (pcl::SAC_RANSAC);
+  seg.setMaxIterations (1000);
+  seg.setDistanceThreshold (0.01);
+
+  pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+
+  // While the original cloud is still there
+  while (cloud_filtered->size () > 0.0)
+  {
+    // Segment the largest sphere component from the remaining cloud
+    seg.setInputCloud (cloud_filtered);
+    seg.segment (*inliers, *coefficients);
+    if (inliers->indices.size () == 0)
+    {
+      std::cerr << "Could not estimate a sphere model for the given dataset." << std::endl;
+      break;
+    }
+
+    float x_center = coefficients->values[0];
+    float y_center = coefficients->values[1];
+    float z_center = coefficients->values[2];
+
+    print_cubes(in_cloud, x_center, y_center,z_center, 0, 0, 255);
+    //print_3D_to_2D_sphere_centers(aux_image, x_center, y_center, z_center);
+
+
+    // Extract the inliers
+    extract.setInputCloud (cloud_filtered);
+    extract.setIndices (inliers);
+    extract.setNegative (false);
+    extract.filter (*cloud_p);
+
+    // Create the filtering object
+    extract.setNegative (true);
+    extract.filter (*cloud_f);
+    cloud_filtered.swap (cloud_f);
   }
 }
 
@@ -595,38 +910,31 @@ void lines_from_3D_to_2D_pcl(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
-  out_pointcloud = in_pointcloud;
+  pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
+  //pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
 
 
   switch(value_choose_opt) {
 
     case 0:
-      //out_pointcloud = in_pointcloud;
-      // if detect_person
-      // make function
-      
+ 
+      out_pointcloud = in_pointcloud;
       break;
 
-    case 1:
-      //std::cout << "1: Detect person\n" << std::endl;
-      
-      //out_pointcloud = in_pointcloud;
-      if (detected){
-        std::cout << "Hay Persona\n" << std::endl;
-        lines_from_3D_to_2D_pcl(out_pointcloud);
+    case 1:      
+      //if (detected){
+      //std::cout << "Hay Persona\n" << std::endl;
 
-      }
-      // if detect_person
-      // make function
-      //out_pointcloud = in_pointcloud;
-      
-      //out_image = green_tags_dt(in_image, value_hough, false);
+      outlier_pointcloud = get_hsv(in_pointcloud);
+      out_pointcloud = remove_outliers(outlier_pointcloud);
+      detect_spheres(out_pointcloud);
+      lines_from_3D_to_2D_pcl(out_pointcloud);
 
+      //}
       break;
 
     case 2:
-       //out_pointcloud = in_pointcloud;
-      
+      out_pointcloud = in_pointcloud;
       break;
 
   }
