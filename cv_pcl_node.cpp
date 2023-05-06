@@ -97,7 +97,7 @@ int inpWidth = 416;  // Width of network's input image
 int inpHeight = 416; // Height of network's input image
 std::vector<std::string> classes;
 
-//cv::Mat aux_image;
+cv::Mat aux_image;
 
 //float x_center_pcl;
 //float y_center_pcl;
@@ -474,36 +474,6 @@ void print_3D_to_2D_sphere_centers(cv::Mat out_image, float x, float y, float z)
   
 }
 
-// usar moments y contors 
-/*cv::Mat purple_balls_dt(cv::Mat in_image){
-  cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
-  
-  // create a clone of input image
-  cpy_in_img = in_image.clone();
-  // convert image in hsv 
-  cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
-  // Detect the object in blue
-  cv::inRange(img_inHSV, cv::Scalar(135,217,19) ,cv::Scalar(230, 255, 255), purple_dt);
-  // Edge detection
-  Canny(purple_dt, out_img, 50, 200, 3);
-  std::vector<cv::Vec3f> circles;
-  HoughCircles(
-    out_img, circles, cv::HOUGH_GRADIENT, 1,
-    out_img.rows / 160,             // change this value to detect circles with different distances to each other
-    200, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
-  );
-  for (size_t i = 0; i < circles.size(); i++) {
-    cv::Vec3i c = circles[i];
-    cv::Point center = cv::Point(c[0], c[1]);
-    // circle center
-    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 100, 100), 3, cv::LINE_AA);
-    // circle outline
-    int radius = c[2];
-    cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 255), 3, cv::LINE_AA);
-  }
-  return cpy_in_img;
-}*/
-
 cv::Mat purple_balls_dt(cv::Mat in_image){
 
   cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
@@ -524,22 +494,6 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   Canny(purple_dt, out_img, 50, 200, 3);
 
   std::vector<cv::Vec3f> circles;
-
-  //cv::HoughCircles(gray_image, circles, cv::HOUGH_GRADIENT, 1, gray_image.rows/8, 200, 30, 0, 0); significado de cada campo
-  //gray_image: La imagen en escala de grises en la que se detectarán los círculos.
-  //circles: El vector en el que se almacenarán los círculos detectados.
-            //Cada círculo se representará mediante un vector de 3 elementos: las coordenadas (x,y) del centro del círculo y el radio.
-  //cv::HOUGH_GRADIENT: El método utilizado para la detección de círculos. En este caso, se utiliza la transformada de Hough circular basada en gradientes.
-  //1: El inverso de la resolución espacial. En este caso, se utiliza una resolución de 1 píxel.
-  //gray_image.rows/8: La distancia mínima entre los centros de los círculos detectados. En este caso, se utiliza un valor de 1/8 del alto de la imagen.
-  //200: El valor del umbral para la detección de bordes. Los bordes con valores de intensidad superiores a 
-          //este umbral se considerarán para la detección de círculos.
-  //30: El valor del umbral para la detección de círculos. Solo se considerarán los círculos que tengan un número de votos superior a este umbral.
-  //0: El valor mínimo del radio del círculo detectado.
-  //0: El valor máximo del radio del círculo detectado.
-
-  //detecta los 4
-  //HoughCircles(out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 200, 30, 1, 10000);
 
   HoughCircles(out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows/8, 100, 40, 0, 10000);
 
@@ -569,15 +523,14 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   for (const auto& circle : outer_circles) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
     int radius = cvRound(circle[2]);
+    // center of the sphere
     cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
-    // circle outline
-    //int rad = circle[2];
+    //sphere
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 
   }
 
   return cpy_in_img;
-  
 }
 
 
@@ -638,35 +591,16 @@ cv::Mat image_processing(const cv::Mat in_image)
       //detect_person(out_image);
       //if (detected){
       //std::cout << "Hay Persona\n" << std::endl;
-      //out_image = purple_balls_dt(in_image);
       out_image = purple_balls_dt(in_image);
       lines_from_3D_to_2D_image(out_image);
-      
-
-      //lines_from_3D_to_2D_image(aux_image);
-
-
       //print_3D_to_2D_sphere_centers(out_image);
-
-
-      //}
-
-      // if detect_person
-      // make function
-      //out_image = in_image;
-      
-      //out_image = green_tags_dt(in_image, value_hough, false);
 
       break;
 
     case 2:
       std::cout << "2: Extras\n" << std::endl;
       out_image = in_image;
-      //out_image = blue_balls_dt(in_image, false);
-      //out_image = in_image;
-      //out_image = purple_balls_dt(in_image);
-      //out_image = get_hsv(in_image, gt_min_h, gt_min_s ,gt_min_v, gt_max_h, gt_max_s, gt_max_v);
-      
+  
       break;
     detected = false;
 
@@ -765,9 +699,9 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
       for(float k = 0.0; k < dim; k+= step){
 
         pcl::PointXYZRGB point;
-        point.x = x_center + i;
-        point.y = y_center + j;
-        point.z = z_center + k;
+        point.x = x_center - i;
+        point.y = y_center - j;
+        point.z = z_center - k;
         point.r = r;
         point.g = g;
         point.b = b;
@@ -885,7 +819,6 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
 {
   pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
   pcl::PointCloud<pcl::PointXYZRGB> outlier_pointcloud;
-  //pcl::PointCloud<pcl::PointXYZRGB> inlier_pointcloud;
 
 
   switch(value_choose_opt) {
