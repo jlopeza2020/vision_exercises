@@ -683,10 +683,10 @@ pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZR
 
 void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center, int r, int g, int b){
 
-  float dim = 0.15;
+  //float dim = 0.15;
   float step = 0.008;
   
-  for(float i = 0.0; i < dim; i+= step){
+  /*for(float i = 0.0; i < dim; i+= step){
     for(float j = 0.0; j < dim; j+= step){
       for(float k = 0.0; k < dim; k+= step){
 
@@ -701,8 +701,43 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
 
       }
     }
+  }*/
+
+  float size = 0.15;
+
+  // Calcular las coordenadas de los ocho vértices del cubo
+  float half_size = size / 2.0;
+  float x_min = x_center - half_size;
+  float x_max = x_center + half_size;
+  float y_min = y_center - half_size;
+  float y_max = y_center + half_size;
+  float z_min = z_center - half_size;
+  float z_max = z_center + half_size;
+
+  for (float x = x_min; x <= x_max; x += step) {
+    for (float y = y_min; y <= y_max; y += step) {
+      for (float z = z_min; z <= z_max; z += step) {
+        // Agregar el vértice al PointCloud
+        /*pcl::PointXYZ point;
+        point.x = x;
+        point.y = y;
+        point.z = z;
+        cloud->push_back(point);*/
+        pcl::PointXYZRGB point;
+        point.x = x;
+        point.y = y;
+        point.z = z;
+        point.r = r;
+        point.g = g;
+        point.b = b;
+        cloud.push_back(point);
+
+      
+      }
+    }
   }
 }
+
 
 void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
 {
