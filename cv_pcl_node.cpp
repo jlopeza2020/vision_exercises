@@ -1,13 +1,10 @@
 /*
 Autora: Julia López Augusto
-
 Partes implementadas: 
-
 - 
 - 
 -
 - Funcionalidad extra: 
-
 */
 
 #include <memory>
@@ -180,7 +177,6 @@ class ComputerVisionSubscriber : public rclcpp::Node
         RCLCPP_ERROR_STREAM(this->get_logger(), "cv_bridge exception: " << e.what());
         return;
       }
-
       depth_image = cv_ptr->image;
     }*/
 
@@ -480,27 +476,22 @@ void print_3D_to_2D_sphere_centers(cv::Mat out_image, float x, float y, float z)
 
 // usar moments y contors 
 /*cv::Mat purple_balls_dt(cv::Mat in_image){
-
   cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
   
   // create a clone of input image
   cpy_in_img = in_image.clone();
-
   // convert image in hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
   // Detect the object in blue
   cv::inRange(img_inHSV, cv::Scalar(135,217,19) ,cv::Scalar(230, 255, 255), purple_dt);
-
   // Edge detection
   Canny(purple_dt, out_img, 50, 200, 3);
-
   std::vector<cv::Vec3f> circles;
   HoughCircles(
     out_img, circles, cv::HOUGH_GRADIENT, 1,
     out_img.rows / 160,             // change this value to detect circles with different distances to each other
     200, 30, 1, 10000              // change the last two parameters (min_radius & max_radius) to detect larger circles
   );
-
   for (size_t i = 0; i < circles.size(); i++) {
     cv::Vec3i c = circles[i];
     cv::Point center = cv::Point(c[0], c[1]);
@@ -510,7 +501,6 @@ void print_3D_to_2D_sphere_centers(cv::Mat out_image, float x, float y, float z)
     int radius = c[2];
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 255), 3, cv::LINE_AA);
   }
-
   return cpy_in_img;
 }*/
 
@@ -534,35 +524,60 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   Canny(purple_dt, out_img, 50, 200, 3);
 
   std::vector<cv::Vec3f> circles;
-  
-  // reduce el valor de dp para reducir la cantidad de cálculos necesarios
-  // ajusta el valor de minDist para reducir la distancia mínima entre los centros de los círculos detectados
-  HoughCircles(
-    out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 100, 40, 40, 100
-  );
 
-  // crea un clon de la imagen de entrada
+  //cv::HoughCircles(gray_image, circles, cv::HOUGH_GRADIENT, 1, gray_image.rows/8, 200, 30, 0, 0); significado de cada campo
+  //gray_image: La imagen en escala de grises en la que se detectarán los círculos.
+  //circles: El vector en el que se almacenarán los círculos detectados.
+            //Cada círculo se representará mediante un vector de 3 elementos: las coordenadas (x,y) del centro del círculo y el radio.
+  //cv::HOUGH_GRADIENT: El método utilizado para la detección de círculos. En este caso, se utiliza la transformada de Hough circular basada en gradientes.
+  //1: El inverso de la resolución espacial. En este caso, se utiliza una resolución de 1 píxel.
+  //gray_image.rows/8: La distancia mínima entre los centros de los círculos detectados. En este caso, se utiliza un valor de 1/8 del alto de la imagen.
+  //200: El valor del umbral para la detección de bordes. Los bordes con valores de intensidad superiores a 
+          //este umbral se considerarán para la detección de círculos.
+  //30: El valor del umbral para la detección de círculos. Solo se considerarán los círculos que tengan un número de votos superior a este umbral.
+  //0: El valor mínimo del radio del círculo detectado.
+  //0: El valor máximo del radio del círculo detectado.
+
+  //detecta los 4
+  //HoughCircles(out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows / 160, 200, 30, 1, 10000);
+
+  HoughCircles(out_img, circles, cv::HOUGH_GRADIENT, 1, out_img.rows/8, 100, 40, 0, 10000);
+
   cpy_in_img = in_image.clone();
 
-  /*cv::Vec3i c = circles[0];
-  cv::Point center = cv::Point(c[0], c[1]);
-  // centro del círculo
-  cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
-  // contorno del círculo
-  int radius = c[2];
-  cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);*/
+  // ordenar los círculos por radio descendente
+  std::sort(circles.begin(), circles.end(),[](const cv::Vec3f& a, const cv::Vec3f& b) {return a[2] > b[2];});
 
-  for (size_t i = 0; i < circles.size(); i++) {
-    cv::Vec3i c = circles[i];
-    cv::Point center = cv::Point(c[0], c[1]);
-    // circle center
+  std::vector<cv::Vec3f> outer_circles; // vector para almacenar los círculos exteriores
+
+  // comprobar si cada círculo está dentro de otro círculo ya detectado
+  for (const auto& circle : circles) {
+    bool is_outer = true; // flag para indicar si el círculo es exterior
+    for (const auto& outer_circle : outer_circles) {
+        float dist = cv::norm(cv::Vec2f(circle[0], circle[1]) - cv::Vec2f(outer_circle[0], outer_circle[1]));
+        if (dist < outer_circle[2] + circle[2]) { // si está dentro de otro círculo
+            is_outer = false;
+            break;
+        }
+    }
+    if (is_outer) { // si es un círculo exterior, añadirlo a la lista de círculos exteriores
+        outer_circles.push_back(circle);
+    }
+  }
+
+  // dibujar los círculos exteriores en la imagen original
+  for (const auto& circle : outer_circles) {
+    cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
+    int radius = cvRound(circle[2]);
     cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
     // circle outline
-    int radius = c[2];
+    //int rad = circle[2];
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
+
   }
 
   return cpy_in_img;
+  
 }
 
 
