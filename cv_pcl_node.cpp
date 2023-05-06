@@ -1,10 +1,14 @@
 /*
 Autora: Julia López Augusto
+
 Partes implementadas: 
-- 
-- 
--
-- Funcionalidad extra: 
+
+- Detección de pelota en 2D y proyección 3D
+- Detección de pelota en 3D y proyección 2D
+- Proyección líneas
+- Funcionalidad extra:
+      - 
+
 */
 
 #include <memory>
@@ -69,40 +73,42 @@ Partes implementadas:
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 
-
 using namespace std::chrono_literals;
-//pcl global vars
+
+// GLOBAL VARIABLES
+
+// PCL SECTION
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud);
 cv::Mat image_processing(const cv::Mat in_image);
+//for cv mat
 geometry_msgs::msg::TransformStamped extrinsicbf2ofimg; 
+//for pcl
 geometry_msgs::msg::TransformStamped extrinsicbf2of; 
 
-//image global vars
-cv::Matx33f K; //intrinsic values 
+
+// IMAGE SECTION 
+//intrinsic values 
+cv::Matx33f K;  
 cv::Matx34f extrinsic_matrixbf2of;
-//cv::Mat depth_image;
+cv::Mat depth_image;
 
 int value_choose_opt;
 int value_distance;
 int key;
+
 bool print_once = true;
 bool detected = false;
 
-// Initialize the parameters
+std::vector<cv::Point3d> points_3D;
+
+std::vector<cv::Point2d> points_2D;
+
+// PERSON DETECTION 
 float confThreshold = 0.5; // Confidence threshold
 float nmsThreshold = 0.4;  // Non-maximum suppression threshold
 int inpWidth = 416;  // Width of network's input image
 int inpHeight = 416; // Height of network's input image
 std::vector<std::string> classes;
-
-std::vector<cv::Point3d> points_3D;
-
-
-//cv::Mat aux_image;
-
-//float x_center_pcl;
-//float y_center_pcl;
-//float z_center_pcl;
 
 class ComputerVisionSubscriber : public rclcpp::Node
 {
@@ -120,8 +126,8 @@ class ComputerVisionSubscriber : public rclcpp::Node
       subscription_info_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
       "/head_front_camera/rgb/camera_info", qos, std::bind(&ComputerVisionSubscriber::topic_callback_in_params, this, std::placeholders::_1));
     
-      //subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
-      //"/head_front_camera/depth_registered/image_raw", qos, std::bind(&ComputerVisionSubscriber::topic_callback_depth, this, std::placeholders::_1));
+      subscription_depth_= this->create_subscription<sensor_msgs::msg::Image>(
+      "/head_front_camera/depth_registered/image_raw", qos, std::bind(&ComputerVisionSubscriber::topic_callback_depth, this, std::placeholders::_1));
 
       // transform listener inialization
       tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -165,7 +171,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     }
 
-    /*void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
+    void topic_callback_depth(const sensor_msgs::msg::Image::SharedPtr msg) const
     {     
     
       cv_bridge::CvImagePtr cv_ptr;
@@ -179,7 +185,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
         return;
       }
       depth_image = cv_ptr->image;
-    }*/
+    }
 
     void on_timer(){
 
@@ -195,7 +201,7 @@ class ComputerVisionSubscriber : public rclcpp::Node
 
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr subscription_info_;
-    //rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
+    rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription_depth_;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher_;
 
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
@@ -218,11 +224,11 @@ class PCLSubscriber : public rclcpp::Node
       "/head_front_camera/depth_registered/points", qos, std::bind(&PCLSubscriber::topic_callback_3d, this, std::placeholders::_1));
     
       // transform listener inialization
-      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-      tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+      tf_buffer2_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+      tf_listener2_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer2_);
 
       // Call on_timer function every 500ms
-      timer_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
+      timer2_ = this->create_wall_timer(500ms, std::bind(&PCLSubscriber::on_timer, this));
       
       publisher_3d_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
       "pcl_points", qos);
@@ -253,7 +259,7 @@ class PCLSubscriber : public rclcpp::Node
 
       try {
         // goes from base_footprint to optical frame 
-        extrinsicbf2of = tf_buffer_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
+        extrinsicbf2of = tf_buffer2_->lookupTransform("head_front_camera_rgb_optical_frame", "base_footprint", tf2::TimePointZero);
       } catch (tf2::TransformException &ex) {
         RCLCPP_WARN(this->get_logger(), "Failed to lookup transform: %s", ex.what());
         return;
@@ -261,9 +267,9 @@ class PCLSubscriber : public rclcpp::Node
 
     }
 
-    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-    rclcpp::TimerBase::SharedPtr timer_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer2_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener2_;
+    rclcpp::TimerBase::SharedPtr timer2_;
 
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
@@ -287,7 +293,7 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
     label = classes[classId] + ":" + label;
   }
 
-    //Display the label at the top of the bounding box
+  //Display the label at the top of the bounding box
   int baseLine;
   cv::Size labelSize = getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
   top = std::max(top, labelSize.height);
@@ -405,7 +411,7 @@ void detect_person(cv::Mat image){
   cv::putText(frame, label, cv::Point(0, 15), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255));
 }
 
-void lines_from_3D_to_2D_image(cv::Mat out_image){
+void print_lines_2D_image(cv::Mat out_image){
 
   int r = 255; 
   int g = 0; 
@@ -439,70 +445,44 @@ void lines_from_3D_to_2D_image(cv::Mat out_image){
   }
 }
 
-void print_3D_to_2D_sphere_centers(cv::Mat out_image){
-
-  //int r = 255; 
-  //int g = 0; 
-  //int b = 0;
-
+void print_2D_sphere_centers(cv::Mat out_image){
 
   float fx = K(0,0);
   float fy = K(1,1);
 
   float cx = K(0,2);
   float cy = K(1,2);
-  //float resy = (fy*(y/z));
-
   
-  //std::cout << points_3D << std::endl;
-  //std::cout << out_image.size().height  << " ancho  " << out_image.size().width << std::endl;
-
-
-  
-
-  //cv::Point center(abs(resx), abs(resy));
-  //cv::circle(out_image,center, 1, cv::Scalar(b, g, r), 5,  cv::LINE_AA); // draw the circle on the image
-
   for (size_t i = 0; i < points_3D.size() ; i++) {
     float x = points_3D[i].x;
     float y = points_3D[i].y;
     float z = points_3D[i].z;
-    // Hacer algo con las coordenadas x, y, z
-
-    //std::cout << x  << "   " << y << " " << z << std::endl;
 
     float resx = (fx*(x/z)) + cx;
     float resy = (fy*(y/z)) + cy;
 
-    //std::cout << resx  << "  resy  " << resy << std::endl;
-
     cv::Point center(abs(resx), abs(resy));
-    cv::circle(out_image,center, 1, cv::Scalar(0, 0, 255), 5,  cv::LINE_AA); // draw the circle on the image
+    cv::circle(out_image,center, 1, cv::Scalar(0, 0, 255), 3,  cv::LINE_AA); // draw the circle on the image
 
-    //points_3D.erase(points_3D[i]);
+    //eliminate point after using it 
     points_3D.erase(points_3D.begin() + i);
   }
-//}
-  
 }
 
+// I improved it from task 4
 cv::Mat purple_balls_dt(cv::Mat in_image){
 
   cv::Mat img_inHSV, purple_dt, cpy_in_img, out_img;
   
-  // suaviza la imagen
+  // smooth image
   cv::GaussianBlur(in_image, in_image, cv::Size(3, 3), 0, 0);
 
-  // convertir imagen en hsv 
   cv::cvtColor(in_image, img_inHSV, cv::COLOR_BGR2HSV);
 
-  // detección del objeto morado
   cv::inRange(img_inHSV, cv::Scalar(135, 217, 19), cv::Scalar(230, 255, 255), purple_dt);
 
-  // umbralización adaptativa
   cv::adaptiveThreshold(purple_dt, purple_dt, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 11, 2);
 
-  // detección de bordes
   Canny(purple_dt, out_img, 50, 200, 3);
 
   std::vector<cv::Vec3f> circles;
@@ -511,32 +491,36 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
 
   cpy_in_img = in_image.clone();
 
-  // ordenar los círculos por radio descendente
+  //sort circle radius: first the biggest
   std::sort(circles.begin(), circles.end(),[](const cv::Vec3f& a, const cv::Vec3f& b) {return a[2] > b[2];});
 
   std::vector<cv::Vec3f> outer_circles; // vector para almacenar los círculos exteriores
 
-  // comprobar si cada círculo está dentro de otro círculo ya detectado
+  //check if each circle is inside of another
   for (const auto& circle : circles) {
-    bool is_outer = true; // flag para indicar si el círculo es exterior
+    bool is_outer = true; 
+
     for (const auto& outer_circle : outer_circles) {
         float dist = cv::norm(cv::Vec2f(circle[0], circle[1]) - cv::Vec2f(outer_circle[0], outer_circle[1]));
-        if (dist < outer_circle[2] + circle[2]) { // si está dentro de otro círculo
+        if (dist < outer_circle[2] + circle[2]) {
             is_outer = false;
             break;
         }
     }
-    if (is_outer) { // si es un círculo exterior, añadirlo a la lista de círculos exteriores
+    // if is and outer circle, add it to the vector 
+    if (is_outer) { 
         outer_circles.push_back(circle);
     }
   }
 
-  // dibujar los círculos exteriores en la imagen original
+  // draw both circles: center and sphere
   for (const auto& circle : outer_circles) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
     int radius = cvRound(circle[2]);
     // center of the sphere
-    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+    cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 5, cv::LINE_AA);
+    points_2D.push_back(center);
+
     //sphere
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 
@@ -557,10 +541,10 @@ cv::Mat image_processing(const cv::Mat in_image)
   int max_value_distance = 8;
   int init_value_distance = 3;
 
+  //obtain extrinsic matrix from quaternion into matrix 
   auto rotation = extrinsicbf2ofimg.transform.rotation;
-  
   tf2::Matrix3x3 mat(tf2::Quaternion{rotation.x, rotation.y, rotation.z, rotation.w});
-  
+
   extrinsic_matrixbf2of = cv::Matx34f( mat[0][0], mat[0][1], mat[0][2], extrinsicbf2ofimg.transform.translation.x,
                                   mat[1][0], mat[1][1], mat[1][2], extrinsicbf2ofimg.transform.translation.y,
                                   mat[2][0], mat[2][1], mat[2][2], extrinsicbf2ofimg.transform.translation.z);
@@ -581,31 +565,27 @@ cv::Mat image_processing(const cv::Mat in_image)
   value_choose_opt = cv::getTrackbarPos("Option", "PRACTICA_FINAL");
   value_distance = cv::getTrackbarPos("Distance", "PRACTICA_FINAL");
 
-  
-  //out_image = in_image;
-
-  out_image = in_image;
 
   switch(value_choose_opt) {
 
     case 0:
-      //std::cout << "0: Original in cvMat and PCL\n" << std::endl;
-      
-      // if detect_person
-      // make function
+
       out_image = in_image;
       
       break;
 
     case 1:
       //std::cout << "1: Detect person\n" << std::endl;
-      //detect_person(out_image);
-      //if (detected){
+      detect_person(in_image);
+      if (detected){
       //std::cout << "Hay Persona\n" << std::endl;
-      out_image = purple_balls_dt(in_image);
-      lines_from_3D_to_2D_image(out_image);
-      print_3D_to_2D_sphere_centers(out_image);
+        out_image = purple_balls_dt(in_image);
+        print_lines_2D_image(out_image);
+        print_2D_sphere_centers(out_image);
 
+      }else{
+        out_image = in_image;
+      }
 
       break;
 
@@ -779,7 +759,7 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
   }
 }
 
-void lines_from_3D_to_2D_pcl(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
+void print_lines_pcl(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
 
   
   int r = 255; 
@@ -827,7 +807,39 @@ void lines_from_3D_to_2D_pcl(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
   }
 }
 
+void print_3d_sphere_centers(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
 
+  float fx = K(0,0);
+  float fy = K(1,1);
+
+  float cx = K(0,2);
+  float cy = K(1,2);
+
+  int r = 0; 
+  int g = 0; 
+  int b = 0;
+  
+  for (size_t i = 0; i < points_2D.size() ; i++) {
+
+    float x_2d = points_2D[i].x;
+    float y_2d = points_2D[i].y;
+
+    float z_3d = depth_image.at<float>(y_2d, x_2d);
+    float x_3d = ((x_2d -cx)*z_3d)/fx;
+    float y_3d = ((y_2d -cy)*z_3d)/fy;
+
+    //float resx = (fx*(x/z)) + cx;
+    //float resy = (fy*(y/z)) + cy;
+
+    //cv::Point center(abs(resx), abs(resy));
+    //cv::circle(out_image,center, 1, cv::Scalar(0, 0, 255), 3,  cv::LINE_AA); // draw the circle on the image
+
+    print_cubes(cloud, x_3d, y_3d, z_3d, r, g, b);
+
+    //eliminate point after using it 
+    //points_2D.erase(points_2D.begin() + i);
+  }
+}
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
 {
   pcl::PointCloud<pcl::PointXYZRGB> out_pointcloud;
@@ -842,15 +854,19 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
       break;
 
     case 1:      
-      //if (detected){
-      //std::cout << "Hay Persona\n" << std::endl;
+      if (detected){
 
-      outlier_pointcloud = get_hsv(in_pointcloud);
-      out_pointcloud = remove_outliers(outlier_pointcloud);
-      detect_spheres(out_pointcloud);
-      lines_from_3D_to_2D_pcl(out_pointcloud);
+        outlier_pointcloud = get_hsv(in_pointcloud);
+        out_pointcloud = remove_outliers(outlier_pointcloud);
+        detect_spheres(out_pointcloud);
+        print_lines_pcl(out_pointcloud);
+        print_3d_sphere_centers(out_pointcloud);
 
-      //}
+      }else{
+
+        out_pointcloud = in_pointcloud;
+      }
+
       break;
 
     case 2:
@@ -859,7 +875,6 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
 
   }
     
-
   return out_pointcloud;
 }
 
