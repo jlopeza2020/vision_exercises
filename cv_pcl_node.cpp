@@ -41,8 +41,6 @@ Partes implementadas:
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
-
-
 #include <pcl/point_cloud.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/conditional_removal.h>
@@ -97,7 +95,10 @@ int inpWidth = 416;  // Width of network's input image
 int inpHeight = 416; // Height of network's input image
 std::vector<std::string> classes;
 
-cv::Mat aux_image;
+std::vector<cv::Point3d> points_3D;
+
+
+//cv::Mat aux_image;
 
 //float x_center_pcl;
 //float y_center_pcl;
@@ -438,39 +439,50 @@ void lines_from_3D_to_2D_image(cv::Mat out_image){
   }
 }
 
-void print_3D_to_2D_sphere_centers(cv::Mat out_image, float x, float y, float z){
+void print_3D_to_2D_sphere_centers(cv::Mat out_image){
 
-  int r = 0; 
-  int g = 0; 
-  int b = 255;
+  //int r = 255; 
+  //int g = 0; 
+  //int b = 0;
 
-  //if(value_distance >= 3){
 
-  //  for(int i = 3; i <= value_distance; i++){
+  float fx = K(0,0);
+  float fy = K(1,1);
 
-  cv::Mat point_req = (cv::Mat_<float>(4,1) << x, y, z, 1.0);
-  //cv::Mat point_req2 = (cv::Mat_<float>(4,1) << i, -1.4, 0.0, 1.0);
+  float cx = K(0,2);
+  float cy = K(1,2);
+  //float resy = (fy*(y/z));
 
-  cv::Mat res = K*extrinsic_matrixbf2of*point_req;
-  //cv::Mat res2 = K*extrinsic_matrixbf2of*point_req2;
+  
+  //std::cout << points_3D << std::endl;
+  //std::cout << out_image.size().height  << " ancho  " << out_image.size().width << std::endl;
 
-  cv::Point center(res.at<float>(0, 0)/abs(res.at<float>(2, 0)) + K(1,2), res.at<float>(1, 0)/abs(res.at<float>(2, 0)) + K(2,2));
-  cv::circle(out_image,center, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
 
-  //cv::Point center2(res2.at<float>(0, 0)/abs(res.at<float>(2, 0)),res2.at<float>(1, 0)/abs(res2.at<float>(2, 0)));
-  //cv::circle(out_image,center2, 3, cv::Scalar(b, g, r), 2); // draw the circle on the image
+  
 
-  //cv::line(out_image, center, center2, cv::Scalar(b, g, r), 2);
+  //cv::Point center(abs(resx), abs(resy));
+  //cv::circle(out_image,center, 1, cv::Scalar(b, g, r), 5,  cv::LINE_AA); // draw the circle on the image
 
-  //cv::putText(out_image, std::to_string(i), center2, cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(b, g, r), 1);
+  for (size_t i = 0; i < points_3D.size() ; i++) {
+    float x = points_3D[i].x;
+    float y = points_3D[i].y;
+    float z = points_3D[i].z;
+    // Hacer algo con las coordenadas x, y, z
 
-      //r -= 40;
-      //g += 40;
-      //b += 40;
+    //std::cout << x  << "   " << y << " " << z << std::endl;
 
-    //}
-  //}
+    float resx = (fx*(x/z)) + cx;
+    float resy = (fy*(y/z)) + cy;
 
+    //std::cout << resx  << "  resy  " << resy << std::endl;
+
+    cv::Point center(abs(resx), abs(resy));
+    cv::circle(out_image,center, 1, cv::Scalar(0, 0, 255), 5,  cv::LINE_AA); // draw the circle on the image
+
+    //points_3D.erase(points_3D[i]);
+    points_3D.erase(points_3D.begin() + i);
+  }
+//}
   
 }
 
@@ -566,14 +578,13 @@ cv::Mat image_processing(const cv::Mat in_image)
     print_once = false;
   }
 
-
   value_choose_opt = cv::getTrackbarPos("Option", "PRACTICA_FINAL");
   value_distance = cv::getTrackbarPos("Distance", "PRACTICA_FINAL");
 
   
   //out_image = in_image;
 
-  //aux_image = out_image;
+  out_image = in_image;
 
   switch(value_choose_opt) {
 
@@ -593,7 +604,8 @@ cv::Mat image_processing(const cv::Mat in_image)
       //std::cout << "Hay Persona\n" << std::endl;
       out_image = purple_balls_dt(in_image);
       lines_from_3D_to_2D_image(out_image);
-      //print_3D_to_2D_sphere_centers(out_image);
+      print_3D_to_2D_sphere_centers(out_image);
+
 
       break;
 
@@ -734,7 +746,7 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
   pcl::ExtractIndices<pcl::PointXYZRGB> extract;
 
   // While the original cloud is still there
-  while (cloud_filtered->size () > 0.0)
+  while (cloud_filtered->size() > 0.0)
   {
     // Segment the largest sphere component from the remaining cloud
     seg.setInputCloud (cloud_filtered);
@@ -750,7 +762,8 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
     float z_center = coefficients->values[2];
 
     print_cubes(in_cloud, x_center, y_center,z_center, 0, 0, 255);
-    //print_3D_to_2D_sphere_centers(aux_image, x_center, y_center, z_center);
+
+    points_3D.push_back(cv::Point3d(x_center, y_center, z_center));
 
 
     // Extract the inliers
