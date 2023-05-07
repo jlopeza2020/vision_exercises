@@ -7,7 +7,8 @@ Partes implementadas:
 - Detección de pelota en 3D y proyección 2D
 - Proyección líneas
 - Funcionalidad extra:
-      - 
+      - Proyección de la pelota de 3D a 2D teniendo en cuenta el radio calculado en 3D y dibujarlo sobre la imagen
+      -
 
 */
 
@@ -339,18 +340,6 @@ void postprocess(cv::Mat & frame, const std::vector<cv::Mat> & outs)
       }
     }
   }
-
-  // Perform non maximum suppression to eliminate redundant overlapping boxes with
-  // lower confidences
-  //std::vector<int> indices;
-  //cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
-  //for (size_t i = 0; i < indices.size(); ++i) {
-    //int idx = indices[i];
-    //cv::Rect box = boxes[idx];
-    //drawPred(
-    //  classIds[idx], confidences[idx], box.x, box.y,
-    //  box.x + box.width, box.y + box.height, frame);
-  //}
 }
 
 // Get the names of the output layers
@@ -445,6 +434,7 @@ void print_lines_2D_image(cv::Mat out_image){
     }
   }
 }
+// EXTRA 1
 void print_2D_sphere_radius(cv::Mat out_image){
 
   float fx = K(0,0);
@@ -454,43 +444,27 @@ void print_2D_sphere_radius(cv::Mat out_image){
   float cy = K(1,2);
   
   for (size_t i = 0; i < points_3D.size() ; i++) {
+
     float x = points_3D[i].x;
     float y = points_3D[i].y;
     float z = points_3D[i].z;
 
     float r = radius_3D[i];
-    //float ry = radius_3D[i].y;
-    //float rz = radius_3D[i].z;
-
 
     float resx = (fx*(x/z)) + cx;
     float resy = (fy*(y/z)) + cy;
 
-    //float resrx = (fx*(rx/rz)) + cx;
-    //float resry = (fy*(ry/rz)) + cy;
-
-    //float radio = sqrt(pow(resrx - resx, 2) + pow(resry - resy, 2));
-
-    std::cout << r << std::endl;
-
+    float size = (r * fx) / z;
+  
     cv::Point center(abs(resx), abs(resy));
 
+    cv::circle(out_image, center, abs(size), cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
 
-    float size = (r * fx) / z;
-
-    std::cout <<"size "<< size << std::endl;
-
-    cv::circle(out_image, center, size, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
-    //int radius = std::abs(radio);
-
-    //cv::circle(out_image,center, radius, cv::Scalar(0, 255, 0), 3,  cv::LINE_AA); // draw the circle on the image
-
-    //eliminate point after using it 
-    //points_3D.erase(points_3D.begin() + i);
-    //radius_3D.erase(radius_3D.begin() + i);
+    //eliminate points after using them
+    points_3D.erase(points_3D.begin() + i);
+    radius_3D.erase(radius_3D.begin() + i);
   }
 }
-
 
 void draw_sphere_2d(cv::Mat& image, cv::Mat K, pcl::ModelCoefficients::Ptr coefficients)
 {
@@ -642,10 +616,8 @@ cv::Mat image_processing(const cv::Mat in_image)
       break;
 
     case 1:
-      //std::cout << "1: Detect person\n" << std::endl;
       detect_person(in_image);
       if (detected){
-      //std::cout << "Hay Persona\n" << std::endl;
         out_image = purple_balls_dt(in_image);
         print_lines_2D_image(out_image);
         print_2D_sphere_centers(out_image);
@@ -657,7 +629,6 @@ cv::Mat image_processing(const cv::Mat in_image)
       break;
 
     case 2:
-      std::cout << "2: Extras\n" << std::endl;
       out_image = in_image;
 
       print_2D_sphere_radius(out_image);
@@ -914,11 +885,6 @@ void print_3d_sphere_centers(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
     float x_3d = ((x_2d -cx)*z_3d)/fx;
     float y_3d = ((y_2d -cy)*z_3d)/fy;
 
-    //float resx = (fx*(x/z)) + cx;
-    //float resy = (fy*(y/z)) + cy;
-
-    //cv::Point center(abs(resx), abs(resy));
-    //cv::circle(out_image,center, 1, cv::Scalar(0, 0, 255), 3,  cv::LINE_AA); // draw the circle on the image
 
     print_cubes(cloud, x_3d, y_3d, z_3d, r, g, b);
 
@@ -956,7 +922,6 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
       break;
 
     case 2:
-      //out_pointcloud = in_pointcloud;
       outlier_pointcloud = get_hsv(in_pointcloud);
       out_pointcloud = remove_outliers(outlier_pointcloud);
       detect_spheres(out_pointcloud, true);
