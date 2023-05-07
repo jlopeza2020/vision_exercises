@@ -106,6 +106,10 @@ std::vector<cv::Point2d> points_2D;
 
 // EXTRA OPTION
 std::vector<float> radius_3D;
+std::vector<cv::Point> clicked_points;
+//std::vector<cv::Point_<int>> clicked_points_int(clicked_points.size());
+int times_clicked = 0;
+
 
 // PERSON DETECTION 
 float confThreshold = 0.5; // Confidence threshold
@@ -466,27 +470,6 @@ void print_2D_sphere_radius(cv::Mat out_image){
   }
 }
 
-void draw_sphere_2d(cv::Mat& image, cv::Mat K, pcl::ModelCoefficients::Ptr coefficients)
-{
-    // Obtener los valores de la esfera en 3D
-    float x = coefficients->values[0];
-    float y = coefficients->values[1];
-    float z = coefficients->values[2];
-    float r = coefficients->values[3];
-
-    // Proyectar el centro de la esfera de 3D a 2D
-    cv::Point2f center;
-    center.x = (x * K.at<double>(0,0)) / z + K.at<double>(0,2);
-    center.y = (y * K.at<double>(1,1)) / z + K.at<double>(1,2);
-
-    // Calcular el tamaño de la esfera en píxeles en la imagen en 2D
-    float fx = K.at<double>(0,0);
-    float size = (r * fx) / z;
-
-    // Dibujar un círculo en la imagen en 2D
-    cv::circle(image, center, size, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
-}
-
 void print_2D_sphere_centers(cv::Mat out_image){
 
   float fx = K(0,0);
@@ -570,6 +553,88 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   return cpy_in_img;
 }
 
+//EXTRA 2
+
+// create mouse callback
+void on_mouse(int event, int x, int y, int, void*)
+{
+  if (event == cv::EVENT_LBUTTONDOWN && times_clicked <= 4){
+    clicked_points.push_back(cv::Point2f(x, y));
+    times_clicked++;
+
+    if(times_clicked == 5){
+      times_clicked = 0;
+      clicked_points.clear();
+
+    }
+    //times_clicked++;
+  }
+}
+
+
+/*cv::Mat rectify_zone(cv::Mat in_image){
+
+  cv::Mat rectified;
+  cv::Mat dst_points_mat(4, 1, CV_32FC2);
+
+
+  if (times_clicked == 4){
+    // Rectify selected region
+    //cv::Point2f srcPoints[4] = { points[0], points[1], points[2], points[3] };
+    cv::Point2f p0 = cv::Point2f(0, 0);
+    cv::Point2f p1 = cv::Point2f(in_image.cols - 1, 0);
+    cv::Point2f p2 = cv::Point2f(in_image.cols - 1, in_image.rows - 1);
+    cv::Point2f p3 = cv::Point2f(0, in_image.rows - 1);
+
+    //cv::Mat dst_points_mat(4, 1, CV_32FC2);
+    dst_points_mat.at<cv::Vec2f>(0, 0) = cv::Vec2f(p0.x, p0.y);
+    dst_points_mat.at<cv::Vec2f>(1, 0) = cv::Vec2f(p1.x, p1.y);
+    dst_points_mat.at<cv::Vec2f>(2, 0) = cv::Vec2f(p2.x, p2.y);
+    dst_points_mat.at<cv::Vec2f>(3, 0) = cv::Vec2f(p3.x, p3.y);
+    cv::Mat transformation = cv::getPerspectiveTransform(clicked_points, dst_points_mat);
+
+    warpPerspective(in_image, rectified, transformation, in_image.size());
+
+  }
+
+  if (rectified.empty()){
+
+      return in_image;
+    }else{
+      return rectified;
+    }
+
+}*/
+
+cv::Mat rectify_zone(cv::Mat in_image){
+  cv::Mat rectified;
+
+  if (times_clicked == 4){
+    // Define source points
+    std::vector<cv::Point2f> src_points = {clicked_points[0], clicked_points[1], clicked_points[2], clicked_points[3]};
+
+    // Define destination points
+    std::vector<cv::Point2f> dst_points = {cv::Point2f(0, 0), cv::Point2f(in_image.cols - 1, 0),
+                                           cv::Point2f(in_image.cols - 1, in_image.rows - 1), cv::Point2f(0, in_image.rows - 1)};
+    
+    // Compute perspective transformation
+    cv::Mat transformation = cv::getPerspectiveTransform(src_points, dst_points);
+
+    // Apply perspective transformation
+    cv::warpPerspective(in_image, rectified, transformation, in_image.size());
+  }
+
+  //return rectified.empty() ? in_image : rectified;
+
+  if (rectified.empty()){
+
+    return in_image;
+  }else{
+    return rectified;
+  }
+
+}
+
 
 cv::Mat image_processing(const cv::Mat in_image) 
 {
@@ -606,13 +671,14 @@ cv::Mat image_processing(const cv::Mat in_image)
   value_choose_opt = cv::getTrackbarPos("Option", "PRACTICA_FINAL");
   value_distance = cv::getTrackbarPos("Distance", "PRACTICA_FINAL");
 
+  cv::setMouseCallback( "PRACTICA_FINAL", on_mouse, 0 );
 
   switch(value_choose_opt) {
 
     case 0:
 
       out_image = in_image;
-      
+      clicked_points.clear();
       break;
 
     case 1:
@@ -625,14 +691,25 @@ cv::Mat image_processing(const cv::Mat in_image)
       }else{
         out_image = in_image;
       }
+      clicked_points.clear();
 
       break;
 
     case 2:
-      out_image = in_image;
 
-      print_2D_sphere_radius(out_image);
-  
+      //out_image = in_image;
+      out_image = rectify_zone(in_image);
+
+      if( times_clicked < 4){
+
+        print_2D_sphere_radius(out_image);
+         for (uint i = 0; i < clicked_points.size(); i++) {
+          circle(out_image, clicked_points[i], 3, cv::Scalar(0, 0, 255), -1);
+        //print_2D_sphere_radius(out_image);
+          }
+
+      }
+
       break;
 
     detected = false;
