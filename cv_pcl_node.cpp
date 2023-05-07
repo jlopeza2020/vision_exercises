@@ -5,11 +5,10 @@ Partes implementadas:
 
 - Detección de pelota en 2D y proyección 3D
 - Detección de pelota en 3D y proyección 2D
-- Proyección líneas
+- Proyección líneas en 2D y 3D
 - Funcionalidad extra:
       - Proyección de la pelota de 3D a 2D teniendo en cuenta el radio calculado en 3D y dibujarlo sobre la imagen
-      -
-
+      - Obtener 4 clicks con el ratón sobre la imagen 2D y rectificar esa zona 
 */
 
 #include <memory>
@@ -53,7 +52,6 @@ Partes implementadas:
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/statistical_outlier_removal.h>
-
 
 #include <vector>
 #include <pcl/features/normal_3d.h>
@@ -107,15 +105,18 @@ std::vector<cv::Point2d> points_2D;
 // EXTRA OPTION
 std::vector<float> radius_3D;
 std::vector<cv::Point> clicked_points;
-//std::vector<cv::Point_<int>> clicked_points_int(clicked_points.size());
 int times_clicked = 0;
 
 
 // PERSON DETECTION 
-float confThreshold = 0.5; // Confidence threshold
-float nmsThreshold = 0.4;  // Non-maximum suppression threshold
-int inpWidth = 416;  // Width of network's input image
-int inpHeight = 416; // Height of network's input image
+// Confidence threshold
+float confThreshold = 0.5; 
+// Non-maximum suppression threshold
+float nmsThreshold = 0.4; 
+// Width of network's input image 
+int inpWidth = 416;  
+// Height of network's input image
+int inpHeight = 416; 
 std::vector<std::string> classes;
 
 class ComputerVisionSubscriber : public rclcpp::Node
@@ -282,32 +283,11 @@ class PCLSubscriber : public rclcpp::Node
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
 };
+
 /**
   TO-DO
 */
 
-// Draw the predicted bounding box
-void drawPred(int classId, float conf, int left, int top, int right, int bottom, cv::Mat & frame)
-{
-  //Draw a rectangle displaying the bounding box
-  rectangle(frame, cv::Point(left, top), cv::Point(right, bottom), cv::Scalar(255, 178, 50), 3);
-
-  //Get the label for the class name and its confidence
-  std::string label = cv::format("%.2f", conf);
-  if (!classes.empty()) {
-    CV_Assert(classId < (int)classes.size());
-    label = classes[classId] + ":" + label;
-  }
-
-  //Display the label at the top of the bounding box
-  int baseLine;
-  cv::Size labelSize = getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-  top = std::max(top, labelSize.height);
-  rectangle(
-    frame, cv::Point(left, top - round(1.5 * labelSize.height)),
-  cv::Point(left + round(1.5 * labelSize.width), top + baseLine), cv::Scalar(255, 255, 255), cv::FILLED);
-  cv::putText(frame, label, cv::Point(left, top), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(0, 0, 0), 1);
-}
 
 // Remove the bounding boxes with low confidence using non-maxima suppression
 void postprocess(cv::Mat & frame, const std::vector<cv::Mat> & outs)
@@ -368,7 +348,7 @@ std::vector<std::string> getOutputsNames(const cv::dnn::Net & net)
 
 void detect_person(cv::Mat image){
 
-  // Give the configuration and weight files for the model
+  // Give the configuration and weight files for the model (complete path)
   std::string modelConfiguration = "/home/juloau/Desktop/vision/ros2_computer_vision/src/computer_vision/src/cfg/yolov3.cfg";
   std::string modelWeights = "/home/juloau/Desktop/vision/ros2_computer_vision/src/computer_vision/src/cfg/yolov3.weights";
 
@@ -438,7 +418,8 @@ void print_lines_2D_image(cv::Mat out_image){
     }
   }
 }
-// EXTRA 1
+
+// EXTRA 1: Proyección de la pelota de 3D a 2D teniendo en cuenta el radio calculado en 3D y dibujarlo sobre la imagen
 void print_2D_sphere_radius(cv::Mat out_image){
 
   float fx = K(0,0);
@@ -458,6 +439,7 @@ void print_2D_sphere_radius(cv::Mat out_image){
     float resx = (fx*(x/z)) + cx;
     float resy = (fy*(y/z)) + cy;
 
+    //as r comes from x coord from radius, formula for obtaining x must be used
     float size = (r * fx) / z;
   
     cv::Point center(abs(resx), abs(resy));
@@ -519,7 +501,8 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   //sort circle radius: first the biggest
   std::sort(circles.begin(), circles.end(),[](const cv::Vec3f& a, const cv::Vec3f& b) {return a[2] > b[2];});
 
-  std::vector<cv::Vec3f> outer_circles; // vector para almacenar los círculos exteriores
+  
+  std::vector<cv::Vec3f> outer_circles; 
 
   //check if each circle is inside of another
   for (const auto& circle : circles) {
@@ -541,11 +524,12 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   // draw both circles: center and sphere
   for (const auto& circle : outer_circles) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
+    // will be used for printing centers in 3D
+    points_2D.push_back(center);
+
     int radius = cvRound(circle[2]);
     // center of the sphere
     cv::circle(cpy_in_img, center, 1, cv::Scalar(0, 255, 0), 5, cv::LINE_AA);
-    points_2D.push_back(center);
-
     //sphere
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 
@@ -553,7 +537,7 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
   return cpy_in_img;
 }
 
-//EXTRA 2
+//EXTRA 2: Obtener 4 clicks con el ratón sobre la imagen 2D y rectificar esa zona 
 
 // create mouse callback
 void on_mouse(int event, int x, int y, int, void*)
@@ -567,46 +551,11 @@ void on_mouse(int event, int x, int y, int, void*)
       clicked_points.clear();
 
     }
-    //times_clicked++;
   }
 }
 
-
-/*cv::Mat rectify_zone(cv::Mat in_image){
-
-  cv::Mat rectified;
-  cv::Mat dst_points_mat(4, 1, CV_32FC2);
-
-
-  if (times_clicked == 4){
-    // Rectify selected region
-    //cv::Point2f srcPoints[4] = { points[0], points[1], points[2], points[3] };
-    cv::Point2f p0 = cv::Point2f(0, 0);
-    cv::Point2f p1 = cv::Point2f(in_image.cols - 1, 0);
-    cv::Point2f p2 = cv::Point2f(in_image.cols - 1, in_image.rows - 1);
-    cv::Point2f p3 = cv::Point2f(0, in_image.rows - 1);
-
-    //cv::Mat dst_points_mat(4, 1, CV_32FC2);
-    dst_points_mat.at<cv::Vec2f>(0, 0) = cv::Vec2f(p0.x, p0.y);
-    dst_points_mat.at<cv::Vec2f>(1, 0) = cv::Vec2f(p1.x, p1.y);
-    dst_points_mat.at<cv::Vec2f>(2, 0) = cv::Vec2f(p2.x, p2.y);
-    dst_points_mat.at<cv::Vec2f>(3, 0) = cv::Vec2f(p3.x, p3.y);
-    cv::Mat transformation = cv::getPerspectiveTransform(clicked_points, dst_points_mat);
-
-    warpPerspective(in_image, rectified, transformation, in_image.size());
-
-  }
-
-  if (rectified.empty()){
-
-      return in_image;
-    }else{
-      return rectified;
-    }
-
-}*/
-
 cv::Mat rectify_zone(cv::Mat in_image){
+
   cv::Mat rectified;
 
   if (times_clicked == 4){
@@ -623,8 +572,6 @@ cv::Mat rectify_zone(cv::Mat in_image){
     // Apply perspective transformation
     cv::warpPerspective(in_image, rectified, transformation, in_image.size());
   }
-
-  //return rectified.empty() ? in_image : rectified;
 
   if (rectified.empty()){
 
@@ -703,10 +650,9 @@ cv::Mat image_processing(const cv::Mat in_image)
       if( times_clicked < 4){
 
         print_2D_sphere_radius(out_image);
-         for (uint i = 0; i < clicked_points.size(); i++) {
+        for (uint i = 0; i < clicked_points.size(); i++) {
           circle(out_image, clicked_points[i], 3, cv::Scalar(0, 0, 255), -1);
-        //print_2D_sphere_radius(out_image);
-          }
+        }
 
       }
 
@@ -803,7 +749,7 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
   float step = 0.008;
   float size = 0.15;
 
-  // Calcular las coordenadas de los ocho vértices del cubo
+  // Calculate coords to center the cube
   float half_size = size / 2.0;
   float x_min = x_center - half_size;
   float x_max = x_center + half_size;
@@ -868,18 +814,15 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud, bool extra)
 
     float radius = coefficients->values[3];
 
-
+    // this will be used in printing 3D to 2D
     points_3D.push_back(cv::Point3d(x_center, y_center, z_center));
+    // this will be used in EXTRA 1
     radius_3D.push_back(radius);
 
     if (!extra){
       print_cubes(in_cloud, x_center, y_center,z_center, 0, 0, 255);
     }
-    //else{
-    //  radius_3D.push_back(cv::Point3d(x_radius, y_radius, z_radius));
-    //}
-
-
+   
     // Extract the inliers
     extract.setInputCloud (cloud_filtered);
     extract.setIndices (inliers);
@@ -965,8 +908,6 @@ void print_3d_sphere_centers(pcl::PointCloud<pcl::PointXYZRGB>& cloud){
 
     print_cubes(cloud, x_3d, y_3d, z_3d, r, g, b);
 
-    //eliminate point after using it 
-    //points_2D.erase(points_2D.begin() + i);
   }
 }
 pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::PointXYZRGB> in_pointcloud)
