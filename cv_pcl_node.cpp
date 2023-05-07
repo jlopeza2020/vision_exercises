@@ -103,6 +103,9 @@ std::vector<cv::Point3d> points_3D;
 
 std::vector<cv::Point2d> points_2D;
 
+// EXTRA OPTION
+std::vector<float> radius_3D;
+
 // PERSON DETECTION 
 float confThreshold = 0.5; // Confidence threshold
 float nmsThreshold = 0.4;  // Non-maximum suppression threshold
@@ -274,8 +277,6 @@ class PCLSubscriber : public rclcpp::Node
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_3d_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_3d_;
 };
-
-
 /**
   TO-DO
 */
@@ -352,7 +353,6 @@ void postprocess(cv::Mat & frame, const std::vector<cv::Mat> & outs)
   //}
 }
 
-
 // Get the names of the output layers
 std::vector<std::string> getOutputsNames(const cv::dnn::Net & net)
 {
@@ -403,7 +403,8 @@ void detect_person(cv::Mat image){
   // Remove the bounding boxes with low confidence
   postprocess(frame, outs);
 
-  // Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
+  // Put efficiency information. The function getPerfProfile returns the overall time for 
+  // inference(t) and the timings for each of the layers(in layersTimes)
   std::vector<double> layersTimes;
   double freq = cv::getTickFrequency() / 1000;
   double t = net.getPerfProfile(layersTimes) / freq;
@@ -443,6 +444,73 @@ void print_lines_2D_image(cv::Mat out_image){
 
     }
   }
+}
+void print_2D_sphere_radius(cv::Mat out_image){
+
+  float fx = K(0,0);
+  float fy = K(1,1);
+
+  float cx = K(0,2);
+  float cy = K(1,2);
+  
+  for (size_t i = 0; i < points_3D.size() ; i++) {
+    float x = points_3D[i].x;
+    float y = points_3D[i].y;
+    float z = points_3D[i].z;
+
+    float r = radius_3D[i];
+    //float ry = radius_3D[i].y;
+    //float rz = radius_3D[i].z;
+
+
+    float resx = (fx*(x/z)) + cx;
+    float resy = (fy*(y/z)) + cy;
+
+    //float resrx = (fx*(rx/rz)) + cx;
+    //float resry = (fy*(ry/rz)) + cy;
+
+    //float radio = sqrt(pow(resrx - resx, 2) + pow(resry - resy, 2));
+
+    std::cout << r << std::endl;
+
+    cv::Point center(abs(resx), abs(resy));
+
+
+    float size = (r * fx) / z;
+
+    std::cout <<"size "<< size << std::endl;
+
+    cv::circle(out_image, center, size, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
+    //int radius = std::abs(radio);
+
+    //cv::circle(out_image,center, radius, cv::Scalar(0, 255, 0), 3,  cv::LINE_AA); // draw the circle on the image
+
+    //eliminate point after using it 
+    //points_3D.erase(points_3D.begin() + i);
+    //radius_3D.erase(radius_3D.begin() + i);
+  }
+}
+
+
+void draw_sphere_2d(cv::Mat& image, cv::Mat K, pcl::ModelCoefficients::Ptr coefficients)
+{
+    // Obtener los valores de la esfera en 3D
+    float x = coefficients->values[0];
+    float y = coefficients->values[1];
+    float z = coefficients->values[2];
+    float r = coefficients->values[3];
+
+    // Proyectar el centro de la esfera de 3D a 2D
+    cv::Point2f center;
+    center.x = (x * K.at<double>(0,0)) / z + K.at<double>(0,2);
+    center.y = (y * K.at<double>(1,1)) / z + K.at<double>(1,2);
+
+    // Calcular el tamaño de la esfera en píxeles en la imagen en 2D
+    float fx = K.at<double>(0,0);
+    float size = (r * fx) / z;
+
+    // Dibujar un círculo en la imagen en 2D
+    cv::circle(image, center, size, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
 }
 
 void print_2D_sphere_centers(cv::Mat out_image){
@@ -525,7 +593,6 @@ cv::Mat purple_balls_dt(cv::Mat in_image){
     cv::circle(cpy_in_img, center, radius, cv::Scalar(255, 0, 0), 3, cv::LINE_AA);
 
   }
-
   return cpy_in_img;
 }
 
@@ -592,12 +659,14 @@ cv::Mat image_processing(const cv::Mat in_image)
     case 2:
       std::cout << "2: Extras\n" << std::endl;
       out_image = in_image;
+
+      print_2D_sphere_radius(out_image);
   
       break;
-    detected = false;
 
-  }
-    
+    detected = false;
+  }    
+
   cv::imshow("PRACTICA_FINAL",out_image);
 
   return out_image;
@@ -683,26 +752,7 @@ pcl::PointCloud<pcl::PointXYZRGB> remove_outliers(pcl::PointCloud<pcl::PointXYZR
 
 void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float y_center,float z_center, int r, int g, int b){
 
-  //float dim = 0.15;
   float step = 0.008;
-  
-  /*for(float i = 0.0; i < dim; i+= step){
-    for(float j = 0.0; j < dim; j+= step){
-      for(float k = 0.0; k < dim; k+= step){
-
-        pcl::PointXYZRGB point;
-        point.x = x_center - i;
-        point.y = y_center - j;
-        point.z = z_center - k;
-        point.r = r;
-        point.g = g;
-        point.b = b;
-        cloud.push_back(point);
-
-      }
-    }
-  }*/
-
   float size = 0.15;
 
   // Calcular las coordenadas de los ocho vértices del cubo
@@ -717,12 +767,6 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
   for (float x = x_min; x <= x_max; x += step) {
     for (float y = y_min; y <= y_max; y += step) {
       for (float z = z_min; z <= z_max; z += step) {
-        // Agregar el vértice al PointCloud
-        /*pcl::PointXYZ point;
-        point.x = x;
-        point.y = y;
-        point.z = z;
-        cloud->push_back(point);*/
         pcl::PointXYZRGB point;
         point.x = x;
         point.y = y;
@@ -731,15 +775,13 @@ void print_cubes(pcl::PointCloud<pcl::PointXYZRGB>& cloud, float x_center, float
         point.g = g;
         point.b = b;
         cloud.push_back(point);
-
-      
       }
     }
   }
 }
 
 
-void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
+void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud, bool extra)
 {
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZRGB>(in_cloud));
 
@@ -776,9 +818,18 @@ void detect_spheres(pcl::PointCloud<pcl::PointXYZRGB>& in_cloud)
     float y_center = coefficients->values[1];
     float z_center = coefficients->values[2];
 
-    print_cubes(in_cloud, x_center, y_center,z_center, 0, 0, 255);
+    float radius = coefficients->values[3];
+
 
     points_3D.push_back(cv::Point3d(x_center, y_center, z_center));
+    radius_3D.push_back(radius);
+
+    if (!extra){
+      print_cubes(in_cloud, x_center, y_center,z_center, 0, 0, 255);
+    }
+    //else{
+    //  radius_3D.push_back(cv::Point3d(x_radius, y_radius, z_radius));
+    //}
 
 
     // Extract the inliers
@@ -893,7 +944,7 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
 
         outlier_pointcloud = get_hsv(in_pointcloud);
         out_pointcloud = remove_outliers(outlier_pointcloud);
-        detect_spheres(out_pointcloud);
+        detect_spheres(out_pointcloud, false);
         print_lines_pcl(out_pointcloud);
         print_3d_sphere_centers(out_pointcloud);
 
@@ -905,7 +956,11 @@ pcl::PointCloud<pcl::PointXYZRGB> pcl_processing(const pcl::PointCloud<pcl::Poin
       break;
 
     case 2:
-      out_pointcloud = in_pointcloud;
+      //out_pointcloud = in_pointcloud;
+      outlier_pointcloud = get_hsv(in_pointcloud);
+      out_pointcloud = remove_outliers(outlier_pointcloud);
+      detect_spheres(out_pointcloud, true);
+
       break;
 
   }
